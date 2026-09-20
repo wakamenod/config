@@ -1,0 +1,15 @@
+:PROPERTIES:
+:ID:       70f6610a-5ed9-4ce1-8ade-c0ce8feefdd8
+:END:
+:END:
+#+title: Linux
+#+category: Configuration
+#+filetags: Configuration
+
+* cursor
+https://wiki.archlinux.org/title/Cursor_themes
+** xresources
+#+begin_src sh :tangle ~/.Xresources
+Xcursor.size: 20
+Xcursor.theme: volantes_cursors
+#+end_src

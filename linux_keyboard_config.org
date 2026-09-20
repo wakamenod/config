@@ -1,0 +1,79 @@
+:PROPERTIES:
+:ID:       ad9a639e-73fa-4c47-97f3-1ef64b3be020
+:END:
+#+title: Linux Keyboard
+#+category: Configuration
+#+filetags: Configuration
+
+* xkb
+** mykbd
+#+begin_src sh :tangle ~/.xkb/keymap/mykbd
+xkb_keymap {
+        xkb_keycodes  { include "evdev+aliases(qwerty)" };
+        xkb_types     { include "complete"      };
+        xkb_compat    { include "complete"      };
+        xkb_symbols   { include "pc+us+us:2+inet(evdev)+shift(both_capslock)+level3(caps_switch)+myswap(swapkeys)"       };
+        xkb_geometry  { include "pc(pc105)"     };
+};
+#+end_src
+** myswap
+#+begin_src sh :tangle ~/.xkb/symbols/myswap
+partial modifier_keys
+xkb_symbols "swapkeys" {
+            key <FK01> { [Muhenkan,Muhenkan] };
+            key <FK02> { [Hiragana_Katakana,Hiragana_Katakana] };
+            key <CAPS> { [ISO_Level3_Shift,ISO_Level3_Shift] };
+};
+#+end_src
+** mykeyboardswap
+上2つの設定を反映する
+#+begin_src sh :tangle ~/Projects/scripts/mykeyboardswap.sh :tangle-mode (identity #o744)
+#!/bin/bash
+xkbcomp -I$HOME/.xkb ~/.xkb/keymap/mykbd $DISPLAY 2> /dev/null
+#+end_src
+** mykeyboardreset
+設定をリセットする
+#+begin_src sh :tangle ~/Projects/scripts/mykeyboardreset.sh :tangle-mode (identity #o744)
+#!/bin/bash
+setxkbmap us
+#+end_src
+* Linux環境のキーボード設定まとめ
+** xkbcomp
+最終的にxkbcompで設定した。設定した内容は次の通り。
+CapsLock -> AltGr、F1 -> 無変換、 F2 -> ひらがな・カタカナ
+ - [[https://x68kace.hatenadiary.org/entry/20170819/1503068400][Linux環境のキーボードカスタマイズ]]
+ - [[https://blog.cnu.jp/2014/05/12/use-xkb/][xkbでキーバインドを変更する]]
+ - [[https://honmushi.com/2019/01/18/ubuntu-xkb/][xkbでキーバインドを変更する (Ubuntu)]]
+ - [[https://shino-tec.com/2019/02/01/xkb-intro/][XKB入門 UbuntuでCtrl-hをBackspaceにする]]
+** setxkbamp
+幾つかキーボード変更のオプションがあるのでそれを選ぶ感じ?
+このオプションの組み合わせでは自分の設定したかったキーマップは設定できなかった。
+ - [[https://shapr.github.io/posts/2019-07-21-space-cadet.html][Hyper and Super on my keyboard?]]
+ - [[https://askubuntu.com/questions/53038/how-do-i-remap-the-caps-lock-key][How do I remap the caps lock key?]]
+** Right Alt (AltGr)
+AltGrというキーがある。Alt Graphic?
+通常のAltとは違うのでこのキーはEmacsで使用するAltとは分けて使える。
+これを利用してAltGrをXmonadのModキーとした。(Mod5)
+AltGrはKinesisAdvantageのUS版にはない。xkbcompを使ってCaps LockにAltGrをアサインした。
+ - [[https://stackoverflow.com/questions/10257352/right-alt-key-not-working-as-meta-key-in-emacs][Right ALT key not working as meta key in emacs]]
+ - [[https://superuser.com/questions/138708/xorg-how-can-i-map-altgr-to-the-capslock-key-to-toggle-3rd-level-symbols][Xorg: How can I map AltGr to the CapsLock Key (to toggle 3rd level symbols)]]
+ - [[https://askubuntu.com/questions/1207717/how-to-use-prtsc-key-as-modifier-altgr-key][How to use PtrSc key as modifier (AltGr) key?]]
+* xbindkeys (マウス)
+#+begin_src sh :tangle ~/.xbindkeysrc :tangle no
+"xte 'keydown Up' 'keyup Up' 'keydown Up' 'keyup Up'"
+  b:9
+"xte 'keydown Down' 'keyup Down' 'keydown Down' 'keyup Down'"
+  b:8
+#+end_src
+** Kensington Slimblade
+#+begin_src sh :tangle ~/.config/10-slimblade.conf
+Section "InputClass"
+        Identifier "Kensington Kensington Slimblade Trackball"
+        MatchProduct "Kensington Kensington Slimblade Trackball"
+        MatchIsPointer "on"
+        MatchDevicePath "/dev/input/event*"
+        Driver "libinput"
+        Option "ButtonMapping" "8 2 3 4 5 6 7 1"
+        Option "MiddleEmulation" "on"
+EndSection
+#+end_src

@@ -1,0 +1,40 @@
+:PROPERTIES:
+:ID:       7C731C41-906F-40D6-A515-8DF2D9A11102
+:END:
+#+title: Xbar
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:sh :tangle ~/Library/Application Support/xbar/plugins/org-clock.1m.sh
+
+* Xbar
+
+#+BEGIN_SRC sh
+#!/usr/bin/env bash
+
+STATUS_FILE="$HOME/.xbar/org-clock/clockin"
+AGENDA_FILE="$HOME/.xbar/org-clock/agenda"
+
+if [ -e "$HOME/.clockin_task" ]; then
+  title=$(cat $STATUS_FILE | cut -f 2)
+  startAt=$(cat $STATUS_FILE | cut -f 1)
+
+  elapsed=$(expr `date +%s` - $startAt)
+
+  h=$(expr $elapsed / 3600)
+  m=$(expr $elapsed % 3600 / 60)
+
+  printf "%s(%02d:%02d)\n" "$title" "$h" "$m"
+else
+  printf "no target\n"
+fi
+
+agenda=$(cat $AGENDA_FILE \
+  | sed -e '/^$/d' \
+  | sed -e 's/^ *Work:/💻/g' \
+        -e 's/^ *Emacs:/💜/g' \
+        -e 's/^ *Daily:/☀️/g' \
+  | cut -d ' ' -f -50)
+echo "---"
+echo "$agenda"
+
+#+END_SRC

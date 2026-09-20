@@ -1,0 +1,842 @@
+:PROPERTIES:
+:ID:       B44BE66B-033C-4EF8-80EE-C1423579FC8E
+:END:
+#+title: karabiner.json
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:json :tangle no :mkdirp yes
+
+macOS のキーリマップ（[[https://karabiner-elements.pqrs.org/][Karabiner-Elements]]）の設定。
+tangle 先は =~/.config/karabiner/karabiner.json=。
+
+* 注意: tangle は一方通行ではない
+
+Karabiner-Elements は **GUI から設定を変更すると自分で karabiner.json を書き戻す**。
+このファイルから tangle すると、GUI 側で加えた変更は消える。
+逆に GUI を触った後にここから tangle すると、GUI の変更が失われる。
+
+運用としてはどちらかに寄せる:
+
+- ここを正とする（推奨）。GUI では設定せず、変更はこのファイルを編集して tangle し直す
+- GUI を正とする。その場合このファイルは記録用と割り切り、GUI で変更したら
+  =~/.config/karabiner/karabiner.json= の内容をここへ写し直す
+
+tangle 前のバックアップは Karabiner 自身が =~/.config/karabiner/automatic_backups/= に
+日付つきで残している。
+
+* 全体の構造
+
+プロファイルは 2 つ。=US= が有効で、=JIS= は使っていない予備。
+ルール本体は両プロファイルで共有するので、noweb 参照で組み立てる。
+
+#+NAME: karabiner-json
+#+BEGIN_SRC json :tangle ~/.config/karabiner/karabiner.json :noweb yes
+{
+  "profiles": [
+    <<profile-us>>,
+    <<profile-jis>>
+  ]
+}
+#+END_SRC
+
+* ルール
+
+各ルールは両プロファイルから参照される。=Spotlight を開くときに IME を英数にする= と
+=F8 to Ctrl+Option+Shift+z= の 2 つのみ =US= 専用。
+
+** esc に英数キーを重ねる（vim 用）
+
+esc を押すと esc と英数を続けて送る。vim で挿入モードを抜けるときに
+IME が日本語入力のままになるのを防ぐ。
+
+#+NAME: rule-esc-eisuu
+#+BEGIN_SRC json
+{
+  "description": "escキーを押したときに、英数キーも送信する（vim用）",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "escape"
+      },
+      "to": [
+        {
+          "key_code": "escape"
+        },
+        {
+          "key_code": "japanese_eisuu"
+        }
+      ],
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+** Caps Lock をリバースキーにする
+
+このプロファイルの主役。単独で押すと Hyper（Cmd + Ctrl + Opt + Shift）、
+修飾キーと一緒に押すと **押していない側の修飾キー** が出る。
+
+| 押すもの                     | 出るもの                  |
+|------------------------------+---------------------------|
+| Caps 単独                    | Cmd + Ctrl + Opt + Shift  |
+| Shift + Caps                 | Opt + Ctrl + Cmd          |
+| Cmd + Caps                   | Ctrl + Opt + Shift        |
+| Cmd + Opt + Ctrl + Caps      | Shift                     |
+
+修飾キーの組み合わせを片手で作るための仕掛けで、3 つ以上の同時押しを
+指の形で覚えずに済む。
+
+#+NAME: rule-caps-reverse
+#+BEGIN_SRC json
+{
+  "description": "Change caps_lock key to reverse key",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "caps_lock"
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_command",
+            "left_control",
+            "left_option"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "shift"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_command",
+          "lazy": true,
+          "modifiers": [
+            "left_option",
+            "left_control"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_control",
+            "left_option"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "option"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_command",
+            "left_control"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "control"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_command",
+            "left_option"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "shift",
+            "command"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_option",
+          "lazy": true,
+          "modifiers": [
+            "left_control"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "shift",
+            "option"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_command",
+          "lazy": true,
+          "modifiers": [
+            "left_control"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "shift",
+            "control"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_command",
+          "lazy": true,
+          "modifiers": [
+            "left_option"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "option"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_control"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "control"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_option"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "control",
+            "option"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "left_shift",
+          "lazy": true,
+          "modifiers": [
+            "left_command"
+          ]
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "option",
+            "control"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": {
+        "key_code": "left_shift",
+        "lazy": true
+      },
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "option",
+            "shift"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": {
+        "key_code": "left_control",
+        "lazy": true
+      },
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "control",
+            "shift"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": {
+        "key_code": "left_option",
+        "lazy": true
+      },
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "caps_lock",
+        "modifiers": {
+          "mandatory": [
+            "option",
+            "control",
+            "shift"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": {
+        "key_code": "left_command",
+        "lazy": true
+      },
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+** 英数・かなキーを Control と兼用する
+
+単独で押せば従来どおり英数／かな、他のキーと同時に押すと Control になる。
+英数が左 Control、かなが右 Control。
+
+#+NAME: rule-eisuu-kana-control
+#+BEGIN_SRC json
+{
+  "description": "英数・かなキーを他のキーと同時に押したときに、Controlキーを送信する",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "japanese_eisuu",
+        "modifiers": {
+          "optional": [
+            "any"
+          ]
+        }
+      },
+      "parameters": {
+        "basic.to_if_alone_timeout_milliseconds": 200
+      },
+      "to": [
+        {
+          "key_code": "left_control"
+        }
+      ],
+      "to_if_alone": [
+        {
+          "key_code": "japanese_eisuu"
+        }
+      ],
+      "type": "basic"
+    },
+    {
+      "from": {
+        "key_code": "japanese_kana",
+        "modifiers": {
+          "optional": [
+            "any"
+          ]
+        }
+      },
+      "parameters": {
+        "basic.to_if_alone_timeout_milliseconds": 200
+      },
+      "to": [
+        {
+          "key_code": "right_control"
+        }
+      ],
+      "to_if_alone": [
+        {
+          "key_code": "japanese_kana"
+        }
+      ],
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+** F1 / F2 を英数・かなにする
+
+外付けキーボードで英数・かなキーが無いときの代替。
+
+#+NAME: rule-f1-eisuu
+#+BEGIN_SRC json
+{
+  "description": "F1 to Eisuu",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "f1"
+      },
+      "to": [
+        {
+          "key_code": "japanese_eisuu"
+        }
+      ],
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+#+NAME: rule-f2-kana
+#+BEGIN_SRC json
+{
+  "description": "F2 to Kana",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "f2"
+      },
+      "to": [
+        {
+          "key_code": "japanese_kana"
+        }
+      ],
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+** Spotlight を開くときに IME を英数にする
+
+Spotlight（と Alfred）のホットキーは Hyper + Space。Caps Lock のリバースキーと
+組み合わせると実際の操作は Caps + Space になる。
+
+押されたときに英数キーを先に送ってから本来の Hyper + Space を送るので、
+検索窓が開いた時点で IME は必ず英語になっている。日本語入力のまま
+アプリ名を打ち始めて変換候補が出る、という事故が無くなる。
+
+英数を「先に」送るのが要点。順序を逆にすると、検索窓が開いた後に
+IME が切り替わるので最初の 1 文字を取りこぼすことがある。
+
+#+NAME: rule-spotlight-eisuu
+#+BEGIN_SRC json
+{
+  "description": "Spotlight を開くときに IME を英数にする",
+  "manipulators": [
+    {
+      "type": "basic",
+      "from": {
+        "key_code": "spacebar",
+        "modifiers": {
+          "mandatory": [
+            "command",
+            "control",
+            "option",
+            "shift"
+          ],
+          "optional": [
+            "caps_lock"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "japanese_eisuu"
+        },
+        {
+          "key_code": "spacebar",
+          "modifiers": [
+            "left_command",
+            "left_control",
+            "left_option",
+            "left_shift"
+          ]
+        }
+      ]
+    }
+  ]
+}
+#+END_SRC
+
+** f18 を Ctrl + Opt + Shift + z にする
+
+=US= プロファイル専用。説明文は "F8" だが、実際に見ているのは f18。
+
+#+NAME: rule-f18-hyper-z
+#+BEGIN_SRC json
+{
+  "description": "F8 to Ctrl+Option+Shift+z",
+  "manipulators": [
+    {
+      "from": {
+        "key_code": "f18",
+        "modifiers": {
+          "optional": [
+            "any"
+          ]
+        }
+      },
+      "to": [
+        {
+          "key_code": "z",
+          "modifiers": [
+            "right_control",
+            "right_option",
+            "right_shift"
+          ]
+        }
+      ],
+      "type": "basic"
+    }
+  ]
+}
+#+END_SRC
+
+* プロファイル US（有効）
+
+=fn_function_keys= は macOS 標準のまま（輝度・Mission Control・音量など）。
+=keyboard_type_v2= が =ansi= なので、JIS 配列の刻印を無視して US 配列として扱う。
+
+#+NAME: profile-us
+#+BEGIN_SRC json :noweb yes
+{
+  "name": "US",
+  "selected": true,
+  "virtual_hid_keyboard": {
+      "caps_lock_delay_milliseconds": 0,
+      "country_code": 0,
+      "keyboard_type": "jis",
+      "keyboard_type_v2": "ansi"
+    },
+  "fn_function_keys": [
+      {
+        "from": {
+          "key_code": "f1"
+        },
+        "to": [
+          {
+            "key_code": "display_brightness_decrement"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f2"
+        },
+        "to": [
+          {
+            "key_code": "display_brightness_increment"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f3"
+        },
+        "to": [
+          {
+            "key_code": "mission_control"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f4"
+        },
+        "to": [
+          {
+            "key_code": "launchpad"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f5"
+        },
+        "to": [
+          {
+            "key_code": "illumination_decrement"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f6"
+        },
+        "to": [
+          {
+            "key_code": "illumination_increment"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f7"
+        },
+        "to": [
+          {
+            "key_code": "rewind"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f8"
+        },
+        "to": [
+          {
+            "key_code": "play_or_pause"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f9"
+        },
+        "to": [
+          {
+            "key_code": "fastforward"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f10"
+        },
+        "to": [
+          {
+            "key_code": "mute"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f11"
+        },
+        "to": [
+          {
+            "key_code": "volume_decrement"
+          }
+        ]
+      },
+      {
+        "from": {
+          "key_code": "f12"
+        },
+        "to": [
+          {
+            "key_code": "volume_increment"
+          }
+        ]
+      }
+    ],
+  "complex_modifications": {
+    "rules": [
+      <<rule-esc-eisuu>>,
+      <<rule-f18-hyper-z>>,
+      <<rule-f1-eisuu>>,
+      <<rule-f2-kana>>,
+      <<rule-caps-reverse>>,
+      <<rule-eisuu-kana-control>>,
+      <<rule-spotlight-eisuu>>
+    ]
+  }
+}
+#+END_SRC
+
+* プロファイル JIS（未使用）
+
+選択されていないので効いていない。Kensington のトラックボールと Apple キーボードに
+個別の =simple_modifications= が残っている（どちらも左 Control を Caps Lock に戻すもの）。
+
+#+NAME: profile-jis
+#+BEGIN_SRC json :noweb yes
+{
+  "name": "JIS",
+  "virtual_hid_keyboard": {
+      "country_code": 0
+    },
+  "devices": [
+      {
+        "identifiers": {
+          "is_pointing_device": true,
+          "product_id": 258,
+          "vendor_id": 10730
+        },
+        "simple_modifications": [
+          {
+            "from": {
+              "key_code": "left_control"
+            },
+            "to": [
+              {
+                "key_code": "caps_lock"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "identifiers": {
+          "is_keyboard": true,
+          "product_id": 668,
+          "vendor_id": 76
+        },
+        "simple_modifications": [
+          {
+            "from": {
+              "key_code": "left_control"
+            },
+            "to": [
+              {
+                "key_code": "caps_lock"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+  "complex_modifications": {
+    "rules": [
+      <<rule-esc-eisuu>>,
+      <<rule-f1-eisuu>>,
+      <<rule-f2-kana>>,
+      <<rule-caps-reverse>>,
+      <<rule-eisuu-kana-control>>
+    ]
+  }
+}
+#+END_SRC

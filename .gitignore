@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# Emacs
+*~
+\#*\#
+.\#*
+*.elc
+
+# org-mode LaTeX preview fragments
+ltximg/
+
+# --- Not published ---
+# Legacy Emacs configuration, superseded by emacs_init.org.
+# Contains credentials and work-specific settings; kept locally only.
+init.org
+
+# Work calendar IDs and colleagues' addresses.
+calendar.org
+
+# Scratch file (duplicates emacs_init.org's org-roam ID).
+test.org

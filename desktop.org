@@ -1,0 +1,215 @@
+:PROPERTIES:
+:ID:       1a071651-ff5b-4f8b-a44a-c713f039096f
+:END:
+#+category: Configuration
+#+filetags: Configuration
+#+title: EXWM
+#+PROPERTY: header-args:emacs-lisp :tangle no
+
+* EXWM
+** Utils
+#+begin_src emacs-lisp
+(defun uffda/update-screen-layout ()
+  (interactive)
+  (let ((layout-script "~/.bin/update-screens"))
+     (message "Running screen layout script: %s" layout-script)
+     (start-process-shell-command "xrandr" nil layout-script)))
+#+end_src
+** Configurations
+#+begin_src emacs-lisp
+(defun efs/run-in-background (command)
+  (let ((command-parts (split-string command "[ ]+")))
+    (apply #'call-process `(,(car command-parts) nil 0 nil ,@(cdr command-parts)))))
+
+(defun efs/exwm-update-class ()
+  (exwm-workspace-rename-buffer exwm-class-name))
+
+(defun efs/exwm-init-hook ()
+  ;; Make workspace 1 be the one where we land at startup
+  (exwm-workspace-switch-create 1)
+
+  (add-to-list 'exwm-manage-configurations '((equal exwm-class-name "Slack") managed t))
+
+  ;; Open eshell by default
+  ;; (eshell)
+
+  ;; Show battery status in the mode line
+  ;; (display-battery-mode 1)
+
+  ;; Show the time and date in modeline
+  ;; (setq display-time-day-and-date t)
+  ;; (display-time-mode 1)
+  ;; Also take a look at display-time-format and format-time-string
+
+  ;; Launch apps that will run in the background
+  ;; (efs/run-in-background "nm-applet")
+  ;; (efs/run-in-background "pasystray")
+  ;; (efs/run-in-background "blueman-applet")
+  (efs/run-in-background "fcitx")
+  (efs/run-in-background "xrandr")
+  (efs/run-in-background "update-screens")
+  )
+
+(defun uffda/adjust-exwm-layout (delta)
+  (interactive "sDelta: ")
+  (let ((d (string-to-number delta)))
+  (exwm-layout-shrink-window-horizontally d)))
+
+(use-package exwm
+  :config
+  (setq exwm-workspaces-number 5)
+
+  ;; When window "class" updates, use it to set the buffer name
+  (add-hook 'exwm-update-class-hook #'efs/exwm-update-class)
+
+  ;; When EXWM starts up, do some extra confifuration
+  (add-hook 'exwm-init-hook #'efs/exwm-init-hook)
+
+  ;; Rebind CapsLock to Ctrl
+  ;; (start-process-shell-command "xmodmap" nil "xmodmap ~/.emacs.d/exwm/Xmodmap")
+
+  (require 'exwm-randr)
+  (exwm-randr-enable)
+
+  ;; Load the system tray before exwm-init
+  (require 'exwm-systemtray)
+  (exwm-systemtray-enable)
+
+  ;; this is for the `--mode not found problem`
+  ;; Seemes like to need to run xrandr once before setting resolution,
+  ;; but this also sometimes fails to setup resolution
+  ;;(start-process-shell-command "xrandr" nil "xrandr")
+  ;;(start-process-shell-command "xrandr" nil "xrandr --output Virtual1 --primary --mode 5120x2758 --pos 0x0 --rotate normal --output Virtual2 --off --output Virtual3 --off --output Virtual4 --off --output Virtual5 --off --output Virtual6 --off")
+
+  ;; These keys should always pass through to Emacs
+  (setq exwm-input-prefix-keys
+        '(?\C-x
+          ?\C-u
+          ?\C-h
+          ?\M-x
+          ?\s-x
+          ?\M-r
+          ?\M-`
+          ?\s-r
+          ?\M-&
+          ?\M-:
+          ?\C-\M-j  ;; Buffer list
+          ?\C-\ ))  ;; Ctrl+Space
+
+  ;; Ctrl+Q will enable the next key to be sent directly
+  (define-key exwm-mode-map [?\C-q] 'exwm-input-send-next-key)
+
+  ;; Set up global key bindings.  These always work, no matter the input state!
+  ;; Keep in mind that changing this list after EXWM initializes has no effect.
+  (setq exwm-input-global-keys
+        `(
+          ;; Reset to line-mode (C-c C-k switches to char-mode via exwm-input-release-keyboard)
+          ([?\s-r] . exwm-reset)
+
+          ;; Move between windows
+          (,(kbd "C-S-s-h") . windmove-left)
+          (,(kbd "C-S-s-l") . windmove-right)
+          (,(kbd "C-S-s-j") . windmove-down)
+          (,(kbd "C-S-s-k") . windmove-up)
+
+          ;; Launch applications via shell command
+          ([?\s-&] . (lambda (command)
+                       (interactive (list (read-shell-command "$ ")))
+                       (start-process-shell-command command nil command)))
+
+          ;; Switch workspace
+          ([?\s-w] . exwm-workspace-switch)
+          ([?\s-`] . (lambda () (interactive) (exwm-workspace-switch-create 0)))
+
+          ;; 's-N': Switch to certain workspace with Super (Win) plus a number key (0 - 9)
+          ,@(mapcar (lambda (i)
+                      `(,(kbd (format "s-%d" i)) .
+                        (lambda ()
+                          (interactive)
+                          (exwm-workspace-switch-create ,i))))
+                    (number-sequence 0 9))))
+
+  (exwm-enable))
+#+end_src
+
+** Provide Package
+#+begin_src emacs-lisp
+(provide 'uffda-desktop)
+#+end_src
+** Memo
+*** Liks
+- [[https://jamcha-aa.github.io/2018/03/12/exwm-jp.html][EXWM で日本語を入力する]]
+*** 日本語入力
+exwmのアプリ内で日本語入力が出来なかったが以下で出来るようになった。
+1. GNOMEでログインし直して、fcitx configurationからmozcをinput methodの最上位へ
+2. EXWMでログイン後counsel-linux-appから明示的にfcitxを起動する
+*** アプリ内日本語入力調査
+EmacsのWindow内と,Linuxアプリ内でKeyBindが変わってるので調査.
+xorg-xevをインストールした使った. 参考: [[https://qiita.com/macinjoke/items/746c0c0adb74cfdeb9e7][キーバインドの変更 Xmodmapの基本的な設定方法]]
+| Mac       | LinuxApp | KeyCode | New Key |
+|-----------+----------+---------+---------|
+| Command_L | Super_L  |     133 | Meta_L  |
+以下の設定を見直したら問題が解消されたのでやめた
+=(setq x-meta-keysym 'super)=
+=(setq x-super-keysym 'meta)=
+* Desktop Environment
+** Desktop File
+This file is used by your "login manager" (GDM, LightDM, etc) to display EXWM as a desktop environment option when you log in.
+
+*IMPORTANT*: Make sure you create a symbolic link for this file into =/usr/share/xsessions=:
+
+#+begin_src sh :tangle no
+sudo ln -f ~/.emacs.d/exwm/EXWM.desktop /usr/share/xsessions/EXWM.desktop
+#+end_src
+
+=Exec= は =.desktop= の仕様上 =~= や =$HOME= を展開しないため、
+絶対パスで書く必要がある。=/home/YOUR_USER= を自分のホームディレクトリに置き換えること。
+
+#+begin_src shell :tangle no :mkdirp yes
+[Desktop Entry]
+Name=EXWM♥
+Comment=Emacs Window Manage
+Exec=sh /home/YOUR_USER/.emacs.d/exwm/start-exwm.sh
+TryExec=sh
+Type=Application
+X-LightDM-DesktopName=exwm
+DesktopNames=exwm
+#+end_src
+
+** Launch Script
+This launcher script is invoked by =EXWM.desktop= to start Emacs and load our desktop environment configuration.  We also start up some other helpful applications to configure the desktop experience.
+
+#+begin_src shell :tangle no :shebang #!/bin/sh
+# NOTE: This is only for the live demo, not needed for your configuration!
+spice-vdagent
+
+# Set screen DPI
+xrdb ~/.emacs.d/exwm/Xresources
+
+# Fire it up
+exec dbus-launch --exit-with-session emacs -mm --debug-init --use-exwm
+#+end_src
+
+** Keyboard Configuration
+The =Xmodmap= file will be used with the =xmodmap= program for remapping keys
+
+#+begin_src sh :tangle no
+clear mod1
+
+keycode 133 = Meta_L
+
+add mod1 = Alt_L Alt_R Meta_L Meta_R
+#+end_src
+
+** DPI configuration
+The =Xresources= file will be used with =xrdb= in =start-exwm.sh= to set our screen DPI:
+
+#+begin_src conf :tangle no
+  Xft.dpi:   180
+#+end_src
+** Emacs Keybinding for Chrome
+=~/.config/gtk-3.0/settings.ini=
+#+begin_src sh :tangle no
+[Settings]
+gtk-key-theme-name = Emacs
+#+end_src

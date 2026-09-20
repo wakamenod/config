@@ -1,0 +1,119 @@
+:PROPERTIES:
+:ID:       a194956f-24c9-4439-b199-a20bbc6db012
+:END:
+#+title: .bashrc
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:sh :tangle ~/.bashrc
+
+* .bashrc
+#+BEGIN_SRC sh
+# ==========================================
+# 1. 基本設定とシステム環境の判別（ファイルの最上部に移動）
+# ==========================================
+export LANG=en_US.UTF-8
+export LC="$LANG"
+export LC_ALL="$LANG"
+
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Mac;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    ,*)          machine="UNKNOWN:${unameOut}"
+esac
+
+# ==========================================
+# 2. PATH や個別ツールの環境変数の設定
+# ==========================================
+export GOPATH=$HOME/go
+export PATH=$PATH:$HOME/go/bin
+export PATH=$PATH:$HOME/bin/
+
+export PATH=$HOME/.nodebrew/current/bin:$PATH
+export PATH=$HOME/flutter/bin:$PATH
+export PATH=$HOME/.cargo/bin:$PATH
+export PATH=$HOME/.local/bin:$PATH
+export PATH=$HOME/.yarn/bin:$PATH
+
+if [[ "$machine" == "Mac" ]]; then
+    alias ls="gls"
+    # Mac専用ツール & Path (Rustup / MySQL / Ruby / TexLive)
+    export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+    export PATH="/opt/homebrew/opt/mysql-client/bin:$PATH"
+    export PATH="/usr/local/texlive/2024/bin/universal-darwin:$PATH"
+    # Android SDK
+    export PATH=$HOME/Library/Android/sdk/tools:$PATH
+    export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH    # For gcal-org
+    export PATH="$PATH:$HOME/.lmstudio/bin"
+    # export GPG_TTY=$(tty)
+    export LDFLAGS=-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib
+
+    eval "$(mise activate bash)"
+fi
+
+if [[ "$machine" == "Linux" ]]; then
+    # setxkbmap -option "lv3:caps_switch"
+    # setxkbmap -option "shift:both_capslock"
+    xkbcomp -I$HOME/.xkb ~/.xkb/keymap/mykbd $DISPLAY 2> /dev/null
+
+    # 10分でスクリーンセイバーにならない対応
+    /usr/bin/xset s off -dpms
+
+    export PATH=$PATH:$HOME/.pub-cache/bin
+    # https://gist.github.com/yowcow/c33a00b7ff89e50f6b3a58f24f1072b5
+    # remap 3 => 1 (rightClick to 1)
+    # remap 1 => 8 (LeftClick  to 8)
+    # Kensington Slimblade Trackball Button IDs:
+    #
+    #     .------+------.
+    #     |  2   |   8  |
+    #     |   .--+--.   |
+    #     +---+ 4/5 +---+
+    #     |   '--+--'   |
+    #     |  1   |   3  |
+    #     '------+------'
+    #
+    # X11 Button Mapping string:
+    #
+    #   LeftClick MiddleClick RightClick ScrollUp ScrollDown ? ? Back ?
+    xinput set-button-map "Kensington Slimblade Trackball" 3 2 8 4 5 6 7 1 9;
+fi
+
+# ==========================================
+# 4. 履歴とターミナル設定
+# ==========================================
+# 重複するコマンドを除く / historyコマンドは記録しない
+export HISTCONTROL=ignoredups
+HISTIGNORE=history
+
+export HISTSIZE=50000
+HISTFILE=$HOME/.bash_history
+
+case "$TERM" in
+    xterm-color|*-256color|xterm-ghostty) color_prompt=yes;;
+esac
+
+# ==========================================
+# 5. 補完・シェル統合 (fzf, zoxide, starship, etc.)
+# ==========================================
+if [[ "$machine" == "Mac" ]]; then
+    if [ -f /opt/homebrew/etc/profile.d/bash_completion.sh ]; then
+        . /opt/homebrew/etc/profile.d/bash_completion.sh
+    fi
+fi
+
+# fzf (曖昧検索機能)
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+
+# # zoxide (ディレクトリ高速移動ツール 'z')
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init bash)"
+fi
+
+# # Starship (プロンプトテーマ - 必ず最後に読み込む)
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init bash)"
+fi
+#+END_SRC

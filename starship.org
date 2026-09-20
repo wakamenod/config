@@ -1,0 +1,89 @@
+:PROPERTIES:
+:ID:       28C0D766-BC89-48FE-A8F7-11FD70890756
+:END:
+#+title: starship.toml
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args :tangle ~/.config/starship.toml
+
+* starship.toml
+#+BEGIN_SRC toml
+add_newline = true
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$rust\
+$nodejs\
+$python\
+$golang\
+$docker_context\
+$fill\
+$cmd_duration\
+$line_break\
+$character"""
+
+[fill]
+symbol = " "
+
+# キャラクター（入力待ち矢印をよりシャープに）
+[character]
+success_symbol = "[󰘧](bold green) "
+error_symbol = "[󰘧](bold red) "
+
+# ディレクトリ（フォルダアイコンを追加）
+[directory]
+format = "[$path]($style)[$read_only]($read_only_style) "
+truncation_length = 3
+truncate_to_repo = true
+style = "bold cyan"
+
+# Git ブランチ（ブランチアイコン）
+[git_branch]
+symbol = " "
+style = "bold magenta"
+format = "on [$symbol$branch]($style) "
+
+# Git ステータス（アイコンと色で状態を細分化）
+[git_status]
+format = "([\\[$all_status$ahead_behind\\]]($style) )"
+style = "bold red"
+conflicted = "󰞇 "
+ahead = "⇡"
+behind = "⇣"
+diverged = "⇕"
+untracked = "󰡪 "
+stashed = "󰚔 "
+modified = "󰷉 "
+staged = "󰐖 "
+renamed = "󰕚 "
+deleted = "󰛉 "
+
+# 各種言語・ツールのアイコン設定
+[rust]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[nodejs]
+symbol = "󰎙 "
+format = "via [$symbol($version)]($style) "
+
+[python]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[golang]
+symbol = " "
+format = "via [$symbol($version)]($style) "
+
+[docker_context]
+symbol = " "
+format = "via [$symbol$context]($style) "
+
+# 実行時間（時計アイコンを追加）
+[cmd_duration]
+min_time = 500
+format = "took 󱎫 [$duration]($style)"
+style = "bold yellow"
+#+END_SRC

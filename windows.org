@@ -1,0 +1,96 @@
+:PROPERTIES:
+:ID:       a3f0810c-bce2-4be4-b6df-e69fb3ab0264
+:END:
+#+title: Windows Environment
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:emacs-lisp
+
+* Startup
+#+begin_src sh :tangle ~/Microsoft/Windows/Start Menu/Programs/Startup/startup.bat :mkdirp yes
+@echo off
+subst w: %USERPROFILE%\work
+#+end_src
+
+* VC
+#+begin_src emacs-lisp :tangle ~/.emacs.d/lisp/vcvarsall-2019.el :mkdirp yes
+;;; vcvars32-2010.el --- Create Visual Studio Command Prompt (2019) environment settings
+;;; see https://stackoverflow.com/questions/5016440/can-i-code-and-compile-all-type-of-visual-studio-application-from-command-line/23199265#23199265
+
+(defconst my/vcver "14.29.30133")
+
+(defconst my/userprofile (or (getenv "USERPROFILE") "C:\\Users\\Default")
+  "Windows のユーザープロファイルディレクトリ。")
+
+(defun my/up (s)
+  "S 中の %UP% を `my/userprofile' に置換する。"
+  (replace-regexp-in-string "%UP%" my/userprofile s t t))
+
+(setenv "CommandPromptType" "Native")
+(setenv "DevEnvDir" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\")
+(setenv "ExtensionSdkDir" "C:\\Program Files (x86)\\Microsoft SDKs\\Windows Kits\\10\\ExtensionSDKs")
+(setenv "Framework40Version" "v4.0")
+(setenv "FrameworkDir" "C:\\Windows\\Microsoft.NET\\Framework64\\")
+(setenv "FrameworkDir64" "C:\\Windows\\Microsoft.NET\\Framework64\\")
+(setenv "FrameworkVersion" "v4.0.30319")
+(setenv "FrameworkVersion64" "v4.0.30319")
+(setenv "HTMLHelpDir" "C:\\Program Files (x86)\\HTML Help Workshop")
+(setenv "INCLUDE" (format "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\ATLMFC\\include;c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\include;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.19041.0\\ucrt;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.19041.0\\shared;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.19041.0\\um;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.19041.0\\winrt;C:\\Program Files (x86)\\Windows Kits\\10\\include\\10.0.19041.0\\cppwinrt;%s\\work\\include" my/vcver my/vcver my/userprofile))
+(setenv "LIB" (format "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\ATLMFC\\lib\\x64;c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\lib\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\lib\\10.0.19041.0\\ucrt\\x64;C:\\Program Files (x86)\\Windows Kits\\10\\lib\\10.0.19041.0\\um\\x64;%s\\work\\lib" my/vcver my/vcver my/userprofile))
+(setenv "LIBPATH" (format "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\ATLMFC\\lib\\x64;c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\lib\\x64;c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\lib\\x86\\store\\references;C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata\\10.0.19041.0;C:\\Program Files (x86)\\Windows Kits\\10\\References\\10.0.19041.0;C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319" my/vcver my/vcver my/vcver))
+(setenv "Platform" "x64")
+(setenv "UCRTVersion" "10.0.19041.0")
+(setenv "VCIDEInstallDir" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\VC\\")
+(setenv "VCINSTALLDIR" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\")
+(setenv (format "VCToolsInstallDir" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\" my/vcver))
+(setenv "VCToolsRedistDir" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Redist\\MSVC\\14.29.30036\\")
+(setenv (format "VCToolsVersion" "%s" my/vcver))
+(setenv "VisualStudioVersion" "16.0")
+(setenv "VS160COMNTOOLS" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\Tools\\")
+(setenv "VSCMD_ARG_app_plat" "Desktop")
+(setenv "VSCMD_ARG_HOST_ARCH" "x64")
+(setenv "VSCMD_ARG_TGT_ARCH" "x64")
+(setenv "VSCMD_VER" "16.10.3")
+(setenv "VSINSTALLDIR" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\")
+(setenv "VSSDK150INSTALL" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VSSDK")
+(setenv "VSSDKINSTALL" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VSSDK")
+(setenv "WindowsLibPath" "C:\\Program Files (x86)\\Windows Kits\\10\\UnionMetadata\\10.0.19041.0;C:\\Program Files (x86)\\Windows Kits\\10\\References\\10.0.19041.0")
+(setenv "WindowsSdkBinPath" "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\")
+(setenv "WindowsSdkDir" "C:\\Program Files (x86)\\Windows Kits\\10\\")
+(setenv "WindowsSDKLibVersion" "10.0.19041.0\\")
+(setenv "WindowsSdkVerBinPath" "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\")
+(setenv "WindowsSDKVersion" "10.0.19041.0\\")
+(setenv "__devinit_path" "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\Tools\\devinit\\devinit.exe")
+(setenv "__DOTNET_ADD_64BIT" "1")
+(setenv "__DOTNET_PREFERRED_BITNESS" "64")
+(setenv "__VSCMD_PREINIT_PATH" (my/up "%UP%/scoop/apps/emacs-k/current/bin;%UP%/scoop/apps/emacs-k/current/bin/;%UP%/scoop/apps/emacs-k/current/usr/bin/;C:\\Program Files (x86)\\Intel\\iCLS Client\\;C:\\Program Files\\Intel\\iCLS Client\\;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\Windows\\System32\\OpenSSH\\;C:\\Program Files\\Docker\\Docker\\resources\\bin;C:\\ProgramData\\DockerDesktop\\version-bin;C:\\Program Files\\dotnet\\;%UP%\\scoop\\apps\\emacs-k\\current\\bin;;%UP%\\scoop\\shims;%UP%\\AppData\\Local\\Microsoft\\WindowsApps;%UP%\\.dotnet\\tools"))
+(setenv "__VSCMD_script_err_count" "0")
+(setenv "PATH"
+        (concat
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\\\Extensions\\Microsoft\\IntelliCode\\CLI;"
+         (format "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\%s\\bin\\HostX64\\x64;" my/vcver)
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\VC\\VCPackages;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\TestWindow;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\TeamFoundation\\Team Explorer;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\MSBuild\\Current\\bin\\Roslyn;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Team Tools\\Performance Tools\\x64;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Team Tools\\Performance Tools;"
+         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\Common\\VSPerfCollectionTools\\vs2019\\\\x64;"
+         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\Common\\VSPerfCollectionTools\\vs2019\\;"
+         "C:\\Program Files (x86)\\HTML Help Workshop;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\Tools\\devinit;"
+         "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.19041.0\\x64;"
+         "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\x64;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\\\MSBuild\\Current\\Bin;"
+         "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\Tools\\;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\CMake\\bin;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja;"
+         "c:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\Common7\\IDE\\VC\\Linux\\bin\\ConnectionManagerExe"
+         (getenv "PATH")))
+
+(provide 'vcvarsall-2019)
+
+;;; vcvarsall-2019.el ends here
+#+end_src

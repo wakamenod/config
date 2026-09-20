@@ -1,0 +1,67 @@
+:PROPERTIES:
+:ID:       FB15D938-ABAE-4E08-B56C-BEA533B16D08
+:END:
+#+title: Emacs Early Init
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/early-init.el
+
+* EarlyInit
+#+begin_src emacs-lisp
+;;; early-init.el --- load before init.el
+;;; Commentary:
+;;; Code:
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(inhibit-startup-screen t)
+ '(inhibit-startup-message t)
+ '(initial-scratch-message nil)
+ '(initial-frame-alist
+   '((left-fringe . 0)
+     (right-fringe   . 0)
+     (internal-border-width . 8)
+     (tool-bar-lines . 0)))
+ '(menu-bar-mode nil)
+ '(scroll-bar-mode nil)
+ '(tool-bar-mode nil)
+ '(initial-buffer-choice t)
+ '(initial-major-mode 'fundamental-mode)
+ '(frame-inhibit-implied-resize t)
+ '(frame-title-format nil)
+ '(cursor-in-non-selected-windows nil)
+ '(font-lock-maximum-decoration nil)
+ '(font-lock-maximum-size nil)
+ '(create-lockfiles nil)
+ '(x-underline-at-descent-line t)
+ '(tab-bar-mode +1)
+ '(tab-bar-history-mode +1)
+ '(global-subword-mode t)
+ '(window-divider-default-right-width 16)
+ '(window-divider-default-places 'right-only)
+ '(completion-ignore-case t)
+ '(read-buffer-completion-ignore-case t)
+ '(read-file-name-completion-ignore-case t)
+ '(ring-bell-function 'ignore)
+ '(enable-local-variables :safe);; inhibit .dir-locals warnings
+ '(gc-cons-threshold most-positive-fixnum))
+
+;; Suppress libgccjit warnings
+;; Reference:　https://pxaka.tokyo/blog/2024/0331-emacs-pkg-with-native-comp/
+(setenv "LIBRARY_PATH"
+        (string-join
+         '("/opt/homebrew/opt/gcc/lib/gcc/14"
+           "/opt/homebrew/opt/libgccjit/lib/gcc/14"
+           "/opt/homebrew/opt/gcc/lib/gcc/14/gcc/aarch64-apple-darwin23/14")
+         ":"))
+
+(defalias 'yes-or-no-p #'y-or-n-p)
+(put 'suspend-frame 'disabled t)
+
+(provide 'early-init)
+
+;;; early-init.el ends here
+#+end_src

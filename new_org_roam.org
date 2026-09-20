@@ -1,0 +1,387 @@
+:PROPERTIES:
+:ID:       8466C7AD-A583-4DC3-AEAC-F65B5B681F9A
+:END:
+#+title: New Org Roam
+
+* My Org Roam Settings
+#+begin_src emacs-lisp :tangle ~/.emacs.d/lisp/my-org-roam.el :mkdirp yes
+;; -*- lexical-binding: t; -*-
+;;; see https://systemcrafters.net/build-a-second-brain-in-emacs/5-org-roam-hacks/
+
+(require 'dash)
+
+(defun my/org-roam-project-finalize-hook ()
+  "Add the captured project file to `org-agenda-files' if the capture was not aborted."
+  ;; Remove the hook since it was added temporarily
+  (remove-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+  ;; Add project file to the agenda list if the capture was confirmed
+  (unless org-note-abort
+    (with-current-buffer (org-capture-get :buffer)
+      (add-to-list 'org-agenda-files (buffer-file-name)))))
+
+(defun org-roam-node-insert-immediate (arg &rest args)
+  "Insert an Org-roam node immediately without further prompts."
+  (interactive "P")
+  (let ((args (cons arg args))
+        (org-roam-capture-templates (list (append (car org-roam-capture-templates)
+                                                  '(:immediate-finish t)))))
+    (apply #'org-roam-node-insert args)))
+
+(defun my/org-roam-filter-by-tag-and-todo (tag-names todo-name)
+  "Return a function that filters Org-roam nodes by TAG-NAMES and TODO-NAME."
+  (lambda (node)
+    (and (if tag-names (--every-p (member it (org-roam-node-tags node)) tag-names) t)
+         (if todo-name (string-equal todo-name (org-roam-node-todo node)) t))))
+
+(defun my/org-roam-refresh-agenda-list ()
+  "Refresh `org-agenda-files' to include Org-roam files with the 'Task' tag."
+  (interactive)
+  (setq org-agenda-files (append (my/org-roam-list-nodes-by-tag '("Task"))
+                                 (list my/org-agenda-calendar))))
+
+(defun my/org-roam-list-nodes-by-tag (tag-names)
+  "List Org-roam node files that have TAG-NAMES."
+  (mapcar #'org-roam-node-file
+          (seq-filter
+           (my/org-roam-filter-by-tag-and-todo tag-names nil)
+           (org-roam-node-list))))
+
+(defun my/org-roam-list-tags (tag-name)
+  "List tags that co-occur with TAG-NAME."
+  (let ((nodes (seq-filter
+                (my/org-roam-filter-by-tag-and-todo `(,tag-name) nil)
+                (org-roam-node-list))))
+    (remove tag-name (delete-dups (apply #'append (mapcar #'org-roam-node-tags nodes))))))
+
+(defun my/org-roam-select-tag (tag-name)
+  "Prompt the user to select a tag that co-occurs with TAG-NAME."
+  (completing-read "Tag: " (my/org-roam-list-tags tag-name)))
+
+(defun my/org-roam-find-with-tag (tag &optional todo)
+  "Find an Org-roam node with TAG and optional TODO keyword."
+  (interactive)
+  (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+  (org-roam-node-find nil nil (my/org-roam-filter-by-tag-and-todo (when tag `(,tag)) todo)))
+
+(defun my/org-roam-find-task ()
+  "Find an Org-roam node with TODO keyword 'TODO'."
+  (interactive)
+  (my/org-roam-find-with-tag nil "TODO"))
+
+(defun my/org-roam-find-reference ()
+  "Find an Org-roam node with tag 'Reference'."
+  (interactive)
+  (my/org-roam-find-with-tag "Reference"))
+
+(defun my/org-roam-find-job-note ()
+  "Find an Org-roam node with tag 'JobNote'."
+  (interactive)
+  (my/org-roam-find-with-tag "JobNote"))
+
+(defun my/org-roam-find-blog-post ()
+  "Find an Org-roam node with tag 'Blog'."
+  (interactive)
+  (my/org-roam-find-with-tag "Blog"))
+
+(defun my/org-roam-capture-generic (base-tag dir-name)
+  "Capture an Org-roam node with BASE-TAG in DIR-NAME."
+  (interactive)
+  ;; Add the project file to the agenda after capture is finished
+  (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+  (let* ((tag (my/org-roam-select-tag base-tag))
+         (header (format "#+title: ${title}\n#+category: %s\n#+filetags: %s %s\n" tag tag base-tag))
+         (node (org-roam-node-read nil (my/org-roam-filter-by-tag-and-todo `(,tag ,base-tag) nil)))
+         (dir (expand-file-name (concat dir-name "/" tag) org-roam-directory)))
+    (unless (file-exists-p dir)
+      (make-directory dir t))
+    (org-roam-capture- :node node
+                       :templates `(("p" ,base-tag plain "* %?"
+                                     :if-new (file+head ,(concat dir "/%<%Y%m%d%H%M%S>-${slug}.org")
+                                                        ,header))))))
+
+(defun my/org-roam-capture-reference ()
+  "Capture a 'Reference' Org-roam node."
+  (interactive)
+  (my/org-roam-capture-generic "Reference" "reference"))
+
+(defun my/org-roam-capture-blog-post ()
+  "Capture a 'Blog' Org-roam node."
+  (interactive)
+  (my/org-roam-capture-generic "Blog" "blog"))
+
+(defun my/org-roam-capture-next-action ()
+  "Capture a 'Next Action' Org-roam node."
+  (interactive)
+  (my/org-roam-capture-generic "Next Action" "next"))
+
+(defun my/org-roam-capture-job-note ()
+  "Capture a 'JobNote' Org-roam node."
+  (interactive)
+  (my/org-roam-capture-generic "JobNote" "job"))
+
+(defun my/org-roam-find-configuration ()
+  "Find an Org-roam node with tag 'Configuration'."
+  (interactive)
+  (my/org-roam-find-with-tag "Configuration"))
+
+(defun my/org-roam-capture-task ()
+  "Capture a 'Task' Org-roam node."
+  (interactive)
+  ;; Add the project file to the agenda after capture is finished
+  (add-hook 'org-capture-after-finalize-hook #'my/org-roam-project-finalize-hook)
+  (let* ((tag (my/org-roam-select-tag "Task"))
+         (header (format "#+category: %s\n#+filetags: %s Task\n" tag tag))
+         (node (org-roam-node-read nil (my/org-roam-filter-by-tag-and-todo `(,tag "Task") "TODO")))
+         (is-new-node (not (org-roam-node-file node)))
+         (olp (list "TODO" (org-roam-node-title node)))
+         (dir (expand-file-name (concat "task/" tag) org-roam-directory)))
+    (unless (file-exists-p dir)
+      (make-directory dir t))
+    (if is-new-node
+        (org-roam-capture- :node node
+                           :templates `(("p" "Task" plain "** TODO %?"
+                                         :if-new (file+olp ,(concat dir "/%<%Y%m%d%H%M%S>-${slug}.org")
+                                                           ,olp)
+                                         :unnarrowed t)))
+      (org-roam-capture- :node node
+                         :templates `(("p" "Task" plain "** TODO %?"
+                                       :if-new (node ,(org-roam-node-id node))))))))
+
+(defun my/export-subtree-to-hugo ()
+  "Export the current subtree to Hugo with dynamic base directory and fixed 'docs/[current-dir]' section.
+   User selects between 'private' or 'public' to set the org-hugo-base-dir accordingly."
+  (interactive)
+  ;; Prompt user to select private or public
+  (let* ((visibility (completing-read "Select visibility: " '("private" "public")))
+         ;; Get current directory name and set org-hugo-section dynamically
+         (current-dir (file-name-nondirectory
+                       (directory-file-name (file-name-directory (buffer-file-name)))))
+         ;; Get the heading of the current subtree
+         (title (org-get-heading t t t t))
+         ;; Replace spaces with dashes in title for URL
+         (formatted-title (replace-regexp-in-string " " "-" title)))
+    ;; Set org-hugo-base-dir dynamically outside let
+    (setq org-hugo-base-dir (expand-file-name (concat "~/Blogs/" visibility "/")))
+    ;; Set org-hugo-section dynamically
+    (setq org-hugo-section (concat "docs/" current-dir))
+    ;; Set the EXPORT_FILE_NAME property using the heading (title) of the current subtree
+    (org-set-property "EXPORT_FILE_NAME" title)  ;; .md extension removed
+    ;; Export using the default behavior of org-hugo-export-wim-to-md
+    (org-hugo-export-wim-to-md)
+    ;; Check if Hugo process is running, if not, start Hugo server
+    (unless (process-live-p (get-process "hugo-server"))
+      (start-process "hugo-server" "*hugo-server*"
+                     "hugo" "server" "-D"
+                     "-s" org-hugo-base-dir))
+    ;; Construct the URL and open it in the browser
+    (let ((url (concat "http://localhost:1313/docs/" current-dir "/" formatted-title)))
+      (browse-url url))))
+
+(defun my/open-hugo ()
+  "Select and open a Hugo site in the browser, starting the Hugo server if necessary."
+  (interactive)
+  ;; Prompt user to select private or public
+  (let* ((visibility (completing-read "Select visibility: " '("private" "public"))))
+    ;; Set org-hugo-base-dir dynamically
+    (setq org-hugo-base-dir (expand-file-name (concat "~/Blogs/" visibility "/")))
+    ;; Check if Hugo process is running, if not, start Hugo server
+    (unless (process-live-p (get-process "hugo-server"))
+      (start-process "hugo-server" "*hugo-server*"
+                     "hugo" "server" "-D"
+                     "-s" org-hugo-base-dir)
+      ;; Wait for the server to start
+      (sleep-for 2))
+    ;; Open the Hugo site in the browser
+    (browse-url "http://localhost:1313/docs/")))
+
+(defun my/org-roam-refile-to-project ()
+  "Refile the current entry to some other file and set TODO state to PROJ."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "project.org") "PROJ"))
+
+(defun my/org-roam-refile-to-next ()
+  "Refile the current entry to some other file and set TODO state to NEXT."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "next.org") "NEXT"))
+
+(defun my/org-roam-refile-to-wait ()
+  "Refile the current entry to some other file and set TODO state to WAIT."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "wait.org") "WAIT"))
+
+(defun my/org-roam-refile-to-archive ()
+  "Refile the current entry to some other file and set TODO state to DONE."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "archive.org") "DONE"))
+
+(defun my/org-roam-refile-to-inbox ()
+  "Refile the current entry to some other file and set TODO state to INOBX."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "inbox.org") "INBOX"))
+
+(defun my/org-roam-refile-to-someday ()
+  "Refile the current entry to some other file and set TODO state to SOMEDAY."
+  (interactive)
+  (my/refile-entry-based-on-context (my/org-gtd-file "someday.org") "SOMEDAY"))
+
+
+(defun my/org-category-property-p ()
+  "現在のエントリのCATEGORYがmy/org-agenda-categories-from-icon-alistの一覧に含まれているかを判定します。"
+  (let* ((category (or (org-entry-get nil "CATEGORY")
+                       (org-agenda-get-category)))
+         (valid-categories (my/org-agenda-categories-from-icon-alist)))
+    (and category
+         (member category valid-categories))))
+
+(defun my/org-agenda-categories-from-icon-alist ()
+  "org-agenda-category-icon-alistからカテゴリの一覧を取得します。"
+  (when (boundp 'org-agenda-category-icon-alist)
+    (mapcar #'car org-agenda-category-icon-alist)))
+
+(defun my/set-category-property ()
+  "エントリにCATEGORYプロパティを設定します。"
+  (let* ((categories (my/org-agenda-categories-from-icon-alist))
+         (category (completing-read "Select CATEGORY: " categories)))
+    (if (derived-mode-p 'org-agenda-mode)
+        (my/org-agenda-set-category category)
+      (org-set-property "CATEGORY" category))))
+
+(defun my/org-agenda-set-category (value)
+  "org-agendaモードでエントリのCATEGORYプロパティを設定します。"
+  (org-agenda-check-no-diary)
+  (org-agenda-maybe-loop
+   #'org-agenda-set-property nil nil nil
+   (let* ((hdmarker (or (org-get-at-bol 'org-hd-marker)
+                        (org-agenda-error)))
+          (buffer (marker-buffer hdmarker))
+          (pos (marker-position hdmarker))
+          (inhibit-read-only t))
+     (org-with-remote-undo buffer
+       (with-current-buffer buffer
+         (widen)
+         (goto-char pos)
+         (org-fold-show-context 'agenda)
+         (org-set-property "CATEGORY" value))))))
+
+(defun my/refile-entry-based-on-context (refile-target-file todo-state)
+  "Refile the current entry depending on whether we are in org-agenda or not.
+If in org-agenda, use `my/org-agenda-refile-core`. Otherwise, use `my/org-roam-refile-core`.
+REFILE-TARGET-FILE is the target file for refiling.
+TODO-STATE is the new TODO state to set."
+  (interactive)
+  (unless (my/org-category-property-p)
+    (my/set-category-property))
+  (if (derived-mode-p 'org-agenda-mode)
+      (my/org-agenda-refile-core refile-target-file todo-state)
+    (my/org-roam-refile-core refile-target-file todo-state)))
+
+(defun my/org-agenda-refile-core (refile-target-file todo-state)
+  "Refile the current agenda entry to REFILE-TARGET-FILE and set TODO-STATE."
+  ;; org-agendaのバッファからエントリーの位置情報を取得
+  (let* ((marker (or (org-get-at-bol 'org-hd-marker)
+                     (org-agenda-error)))
+         (pos (marker-position marker)))
+    (with-current-buffer (marker-buffer marker)
+      (goto-char pos)
+      ;; org-modeのエントリーに移動した上でリファイル処理を実行
+      (org-id-get-create)
+      (org-todo todo-state)
+      (let* ((org-refile-targets `((,refile-target-file . (:maxlevel . 1))))
+             (org-refile-use-outline-path 'file)
+             (org-refile-allow-creating-parent-nodes nil))
+        (org-refile nil nil (list "" refile-target-file nil 0))))
+    ;; org-agendaのバッファをリフレッシュして変更を反映
+    (org-agenda-redo)))
+
+(defun my/org-roam-refile-core (refile-target-file todo-state)
+  "Core function to refile the current entry and set TODO state.
+REFILE-TARGET-FILE is the target file for refiling.
+TODO-STATE is the new TODO state to set."
+  ;; Add an ID if it doesn't exist
+  (org-id-get-create)
+  ;; Set the new TODO state
+  (org-todo todo-state)
+  ;; Ensure the current entry is at top-level
+  (let* ((org-refile-targets `((,refile-target-file . (:maxlevel . 1))))
+         (org-refile-use-outline-path 'file)
+         (org-refile-allow-creating-parent-nodes nil))
+    (save-excursion
+      ;; Refile the current entry to the top of the target file
+      (org-refile nil nil (list "" refile-target-file nil 0)))))
+
+(defun my/org-roam-capture-inbox ()
+  "Capture a Inbox item."
+  (interactive)
+  (org-roam-capture- :node (org-roam-node-create)
+                     :templates
+                     `(("h" "headline" plain
+                        "* INBOX %?\n"
+                        :target (file ,(my/org-gtd-file "inbox.org"))))))
+
+(defun my/org-roam-capture-next ()
+  "Capture a Next item, after selecting a category."
+  (interactive)
+  (let* ((categories (my/org-agenda-categories-from-icon-alist))
+         (category (completing-read "Select CATEGORY: " categories)))
+    (org-roam-capture- :node (org-roam-node-create)
+                       :templates
+                       `(("h" "headline" plain
+                          ,(concat "* NEXT %?\n"
+                                   ":PROPERTIES:\n"
+                                   ":CATEGORY: " category "\n"
+                                   ":END:\n")
+                          :target (file ,(my/org-gtd-file "next.org")))))))
+
+
+(defun my/org-capture-todo-to-current-headline ()
+  "現在の見出しの配下にTODOエントリを追加します。
+Org AgendaやOrgファイルから実行できます。"
+  (interactive)
+  (if (equal major-mode 'org-agenda-mode)
+      (my/org-agenda-capture)
+    (org-capture nil "t")))
+
+(defun my/org-agenda-capture ()
+  "Org Agendaからキャプチャを実行します。"
+  (let* ((marker (or (org-get-at-bol 'org-hd-marker)
+                     (error "この行に対応するOrgエントリがありません")))
+         (buffer (marker-buffer marker))
+         (pos (marker-position marker)))
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char pos)
+        (org-capture nil "t")))))
+
+  (defun my/org-code-info-store-point ()
+    "Find registered capture point and move the cursor to it."
+    (unless org-code-capture-store-file
+      (error "No capture file registered"))
+    (set-buffer (org-capture-target-buffer org-code-capture-store-file))
+    (goto-char (point-min))
+    (unless (derived-mode-p 'org-mode)
+      (error
+       "Target buffer \"%s\" for org-code-info-store-point should be in Org mode"
+       (current-buffer)))
+    (if (search-forward org-code-capture-store-header nil t)
+        (goto-char (pos-bol))
+      (goto-char (point-max))
+      (or (bolp) (insert "\n"))
+      (insert "* Capture\n")
+      (beginning-of-line 0))
+    (org-end-of-subtree))
+
+
+(defun my/org-code-capture-here ()
+    "Register current subtree as a capture point."
+    (interactive)
+    (setq org-code-capture-store-file (buffer-file-name))
+    (setq org-code-capture-store-header (nth 4 (org-heading-components))))
+
+(defun my/capture-code-reading-link ()
+  "Directly capture code-reading link using the predefined template."
+  (interactive)
+  (org-capture nil "j"))
+
+(provide 'my-org-roam)
+;;; my-org-roam.el ends here
+#+end_src
