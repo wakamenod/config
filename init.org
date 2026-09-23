@@ -3352,9 +3352,34 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   :hook
   (xwidget-webkit-mode-hook . my-xwidget-force-arrow-cursor))
 #+end_src
+** enghi
+#+begin_src emacs-lisp
+(leaf enghi
+  :doc "ローカル Wiki + GTD サーバ enghi のクライアント"
+  :load-path "~/Projects/SideProjects/enghi.el"
+  :commands (enghi-find-page enghi-new-page enghi-capture enghi-capture-region
+             enghi-search-command enghi-open-in-browser enghi-focus-page
+             enghi-browse-dashboard enghi-status)
+  :init
+  (autoload 'enghi-command-map "enghi" nil nil 'keymap)
+  ;; 別ファイルのコマンドも、キーマップから直接呼べるようにしておく
+  (autoload 'enghi-consult-search "enghi-consult" "enghi を consult で検索する" t)
+  :bind (("C-c w" . enghi-command-map))
+  :custom ((enghi-server-url . "http://127.0.0.1:7777")
+           (enghi-request-timeout . 10)
+           ;; 記事は xwidget の webkit で、少し余白を持たせて Emacs 内に開く
+           (enghi-browse-function . #'enghi-browse-in-xwidget)
+           ;; (左右 . 上下) ピクセル。左右は文字幅(8px)に丸められる
+           (enghi-xwidget-padding . '(32 . 12))))
+#+end_src
 * Post Process
 #+begin_src emacs-lisp
-(setq gc-cons-threshold (* 512 1024 1024));
+;; early-init.el は起動中だけ GC を止めているので起動が終わってから戻す
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold (* 512 1024 1024)
+                  gc-cons-percentage 0.1))
+          90)
 
 (provide 'init)
 ;;; init.el ends here

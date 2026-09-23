@@ -46,16 +46,26 @@
  '(read-buffer-completion-ignore-case t)
  '(read-file-name-completion-ignore-case t)
  '(ring-bell-function 'ignore)
- '(enable-local-variables :safe);; inhibit .dir-locals warnings
- '(gc-cons-threshold most-positive-fixnum))
+ '(enable-local-variables :safe));; inhibit .dir-locals warnings
+
+;; 起動中だけ GC を止める
+(setq gc-cons-threshold most-positive-fixnum
+      gc-cons-percentage 0.6)
 
 ;; Suppress libgccjit warnings
 ;; Reference:　https://pxaka.tokyo/blog/2024/0331-emacs-pkg-with-native-comp/
 (setenv "LIBRARY_PATH"
+        ;; バージョン番号と darwin のトリプルは Homebrew の更新で変わるため直書きしない。
+        ;; current を辿り、実在するディレクトリだけを渡す(存在しないパスを渡すと
+        ;; cgo を使うビルドで ld の search path 警告が出る)。
         (string-join
-         '("/opt/homebrew/opt/gcc/lib/gcc/14"
-           "/opt/homebrew/opt/libgccjit/lib/gcc/14"
-           "/opt/homebrew/opt/gcc/lib/gcc/14/gcc/aarch64-apple-darwin23/14")
+         (delq nil
+               (mapcar (lambda (d) (and (file-directory-p d) d))
+                       (append
+                        (list "/opt/homebrew/opt/gcc/lib/gcc/current"
+                              "/opt/homebrew/opt/libgccjit/lib/gcc/current")
+                        (file-expand-wildcards
+                         "/opt/homebrew/opt/gcc/lib/gcc/current/gcc/*"))))
          ":"))
 
 (defalias 'yes-or-no-p #'y-or-n-p)

@@ -15,7 +15,7 @@ ltximg/
 # --- Not published ---
 # Legacy Emacs configuration, superseded by emacs_init.org.
 # Contains credentials and work-specific settings; kept locally only.
-init.org
+/trash
 
 # Work calendar IDs and colleagues' addresses.
 calendar.org
