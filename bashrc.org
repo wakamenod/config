@@ -91,6 +91,10 @@ HISTIGNORE=history
 export HISTSIZE=50000
 HISTFILE=$HOME/.bash_history
 
+# 履歴を上書きせず追記し、プロンプトごとに保存・他のタブの分を読み込む
+shopt -s histappend
+PROMPT_COMMAND="history -a; history -n${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+
 case "$TERM" in
     xterm-color|*-256color|xterm-ghostty) color_prompt=yes;;
 esac
