@@ -1186,6 +1186,19 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   :custom-face
   (vertico-posframe-border . '((t (:background "#323445")))))
 
+(leaf vertico-posframe-preview
+  :doc "Show preview of the current candidate in a second posframe"
+  :url "https://github.com/kn66/vertico-posframe-preview"
+  :vc (:url "https://github.com/kn66/vertico-posframe-preview"
+            :rev :newest)
+  :after vertico-posframe
+  :global-minor-mode vertico-posframe-preview-mode
+  :bind (vertico-map
+         ("C-t" . vertico-posframe-preview-toggle))
+  :config
+  (with-eval-after-load 'consult
+    (vertico-posframe-preview-refresh-integrations)))
+
 #+end_src
 ** Consult
 #+begin_src emacs-lisp
