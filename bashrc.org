@@ -6,7 +6,7 @@
 #+filetags: Configuration
 #+PROPERTY: header-args:sh :tangle ~/.bashrc
 
-* .bashrc
+q* .bashrc
 #+BEGIN_SRC sh
 # ==========================================
 # 1. 基本設定とシステム環境の判別（ファイルの最上部に移動）
@@ -47,6 +47,7 @@ if [[ "$machine" == "Mac" ]]; then
     export PATH=$HOME/Library/Android/sdk/tools:$PATH
     export PATH=$HOME/Library/Android/sdk/platform-tools:$PATH    # For gcal-org
     export PATH="$PATH:$HOME/.lmstudio/bin"
+    export PATH="$HOME/.docker/bin:$PATH"
     # export GPG_TTY=$(tty)
     export LDFLAGS=-L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib
 
