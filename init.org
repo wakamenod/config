@@ -1895,8 +1895,9 @@ Like normal Emacs `C-k'.  Kill to end of line and put content in kill-ring."
 
 (leaf popterm
   :ensure t
-  :bind (("C-`" . popterm-toggle)
-         ("C-~" . popterm-toggle-cd))
+  :bind (("C-`"   . popterm-toggle)
+         ("C-~"   . popterm-toggle-cd)
+         ("C-M-`" . popterm-window-toggle))
   :custom
   (popterm-backend . 'ghostel)
   ;; (popterm-display-method . 'window)
