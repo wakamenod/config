@@ -1716,6 +1716,8 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   (go-ts-mode-hook . eglot-ensure)
   (LaTeX-mode-hook . eglot-ensure)
   (typescript-ts-mode-hook . eglot-ensure)
+  (tsx-ts-mode-hook . eglot-ensure)
+  (js-ts-mode-hook . eglot-ensure)
   (swift-ts-mode-hook . eglot-ensure)
   :config
   (setq-default eglot-workspace-configuration
@@ -1727,7 +1729,7 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   (when (require 'swift-lsp nil t)
     (add-to-list 'eglot-server-programs '(swift-ts-mode . swift-lsp-eglot-server-contact)))
   (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
-  (add-to-list 'eglot-server-programs '(typescript-ts-mode . ("typescript-language-server" "--stdio")))
+  (add-to-list 'eglot-server-programs '((typescript-ts-mode tsx-ts-mode js-ts-mode) . ("typescript-language-server" "--stdio")))
   (add-to-list 'eglot-server-programs '(LaTeX-mode . ("texlab"))))
 (leaf lsp-ui :ensure t)
 (leaf eglot-x
@@ -2210,10 +2212,14 @@ Like normal Emacs `C-k'.  Kill to end of line and put content in kill-ring."
 #+end_src
 ** Ts/React
 #+begin_src emacs-lisp
-(leaf *typescript-ts-mode
+(leaf apheleia
+  :doc "Run code formatters on save without moving point"
+  :url "https://github.com/radian-software/apheleia"
+  :ensure t
   :hook
-  ((tsx-ts-mode-hook . lsp-deferred)
-   (typescript-ts-mode-hook . lsp-deferred)))
+  ((typescript-ts-mode-hook . apheleia-mode)
+   (tsx-ts-mode-hook . apheleia-mode)
+   (js-ts-mode-hook . apheleia-mode)))
 #+end_src
 ** Markdown
 #+begin_src emacs-lisp
