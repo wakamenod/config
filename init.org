@@ -3391,6 +3391,19 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
            (enghi-browse-function . #'enghi-browse-in-xwidget)
            ;; (左右 . 上下) ピクセル。左右は文字幅(8px)に丸められる
            (enghi-xwidget-padding . '(32 . 12))))
+
+(leaf enghi-dashboard
+  :doc "dashboard の起動画面に enghi の欄 (Inbox・今日・近い締切) を出す"
+  :load-path "~/Projects/SideProjects/enghi.el"
+  :after dashboard
+  :config
+  ;; enghi.el の dashboard-section ブランチをマージするまではファイルが無い。
+  ;; 生成関数の無い項目を dashboard-items に入れると起動画面ごと壊れるので、
+  ;; 読み込めたときだけ agenda の欄と差し替える
+  (when (require 'enghi-dashboard nil t)
+    (add-to-list 'dashboard-heading-icons '(enghi . "nf-oct-checklist"))
+    (setq dashboard-items
+          (cons '(enghi . 5) (assq-delete-all 'agenda (copy-tree dashboard-items))))))
 #+end_src
 * Post Process
 #+begin_src emacs-lisp
