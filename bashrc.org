@@ -6,7 +6,7 @@
 #+filetags: Configuration
 #+PROPERTY: header-args:sh :tangle ~/.bashrc
 
-q* .bashrc
+* .bashrc
 #+BEGIN_SRC sh
 # ==========================================
 # 1. 基本設定とシステム環境の判別（ファイルの最上部に移動）
