@@ -62,19 +62,12 @@ Org 関連ファイルの置き場所はマシンごとに違うので、=my/org
 ;; 以下は `my/org-root' からの派生。leaf の :custom は値に関数呼び出しを
 ;; そのまま書けない（平のリストとして分解されてしまう）ため、
 ;; あらかじめ変数へ展開しておく。
+;; org-roam はもう使っていないが、この設定ファイル自体が roam/config/ にあり、
+;; 保存時の tangle 判定 (`my/org-config-dir') がこれを基準にしている。
 (defconst my/org-roam-dir (expand-file-name "roam/" my/org-root))
-(defconst my/org-gtd-dir (expand-file-name "gtd/" my/org-roam-dir))
-(defconst my/org-daily-dir (expand-file-name "daily/" my/org-roam-dir))
-(defconst my/org-daily-templates-dir (expand-file-name "templates/" my/org-daily-dir))
-(defconst my/org-task-dir (expand-file-name "task/" my/org-roam-dir))
 (defconst my/org-config-dir (expand-file-name "config/" my/org-roam-dir))
-(defconst my/org-agenda-calendar (expand-file-name "agenda/calendar" my/org-root))
 (defconst my/org-snippets-dir (expand-file-name "snippets" my/org-root))
 (defconst my/org-images-dir (expand-file-name "images" my/org-root))
-
-(defun my/org-gtd-file (name)
-  "GTD ディレクトリ配下の NAME の絶対パスを返す。"
-  (expand-file-name name my/org-gtd-dir))
 #+end_src
 
 ** Package Manager
@@ -486,14 +479,10 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   (dashboard-set-file-icons       . t)
   (dashboard-set-footer           . t)
   (dashboard-set-init-info        . t)
-  (dashboard-week-agenda          . nil)
   (dashboard-image-banner-max-width . 520)
-  (dashboard-agenda-prefix-format . "%-4i %s")
-  (dashboard-agenda-tags-format   . 'ignore)
-  (dashboard-filter-agenda-entry  . 'uffda/agenda-filter)
   (dashboard-footer-messages      . '("Happy Hacking!"))
   (dashboard-items
-   . '((agenda   . 5)
+   . '((enghi    . 5)
        (projects . 5)
        (recents  . 5)))
   (dashboard-icon-type            . 'nerd-icons)
@@ -508,13 +497,6 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
                             :face 'shadow))
   (add-hook 'dashboard-mode-hook #'hide-nano-header t t)
   :preface
-  (defun uffda/agenda-filter ()
-    "No filter agenda entries."
-    (unless (and (string= (org-get-category) "Work")
-                 (org-entry-is-todo-p)
-                 (not (org-entry-is-done-p))
-                 (not (org-in-archived-heading-p)))
-      (point)))
   (defun hide-nano-header()
     (setq-local header-line-format ""))
   :custom-face
@@ -1412,7 +1394,7 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
 ;; I don't know why but this block does not work well only when the first boot.
 ;; Thus, I need to disabled this block for that time.
 (leaf orderless-migemo
-  :doc "orderless migemo style for org-roam"
+  :doc "orderless migemo style"
   :require orderless
   :preface
   (defun orderless-migemo (component)
@@ -1430,8 +1412,7 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   (setq completion-category-overrides
         '((file             (styles . (partial-completion)))
           ;; e.g. consult-line
-          (consult-location (styles orderless-migemo-style))
-          (org-roam-node    (styles orderless-migemo-style)))))
+          (consult-location (styles orderless-migemo-style)))))
 #+end_src
 ** Corfu
 #+begin_src emacs-lisp
@@ -2435,25 +2416,11 @@ literate programming, maintaining to-do lists, planning projects, and more"
   :url "https://orgmode.org/"
   :mode "\\.org\\'"
   :ensure t
-  :init
-  (setq org-directory   "~/doc/content/"
-        org-agenda-dir  my/org-task-dir
-        org-journal-dir "~/memo/daily/"
-        org-cards-dir   (concat org-directory  "card/")
-        org-posts-dir   (concat org-directory  "post/")
-        org-work-dir    (concat org-directory  "work/")
-        org-books-dir   (concat org-directory  "book/")
-        org-task-file   (concat org-agenda-dir "task.org")
-        org-work-file   (concat org-agenda-dir "work.org"))
   :bind
   ((:org-mode-map ("C-c o" . org/body)))
   :pretty-hydra
   ((:title "Org Mode" :color blue :quit-key "q" :foreign-keys warn :separator "╌")
-   ("Clock"
-    (("i" org-clock-in  "clock in")
-     ("o" org-clock-out "clock out")
-     ("e" org-set-effort "set effort"))
-    "Footnote & HTML"
+   ("Footnote & HTML"
     (("f" org-footnote-new    "new footnote")
      ("p" org-preview-html-mode "preview HTML"))
     "Lists"
@@ -2470,8 +2437,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
     (("C-s C-s" org-save-all-org-buffers "save all")
      ("C-." org-time-stamp-inactive "inactive timestamp"))))
   :custom
-  (org-todo-keywords .
-                     '((sequence "TODO(t)" "WAIT(w)" "INBOX(i)" "PROJ(p)" "NEXT(n)" "SOMEDAY(s)" "|" "DONE(d)")))
   (org-startup-with-latex-preview        . nil)
   (org-src-preserve-indentation          . nil)
   (org-edit-src-content-indentation      . 0)
@@ -2509,10 +2474,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
 (leaf org-theme
   :doc "Theme for org-mode"
   :after org
-  :custom
-  (org-todo-keyword-faces
-   . '(("WAIT" . (:foreground "#6272a4" :weight bold :width condensed))
-       ("NEXT" . (:foreground "#f1fa8c" :weight bold :width condensed))))
   :custom-face
   ;; general
   (org-level-1         . '((t (:inherit outline-1 :weight normal :height 1.2))))
@@ -2530,7 +2491,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
   (org-document-info   . '((t (:foreground "#6272a4" :height 1.0))))
   (org-meta-line       . '((t (:foreground "#44475a" :height 1.0))))
   (org-footnote        . '((t (:foreground "#76e0f3"))))
-  (org-agenda-calendar-event . '((t (:foreground "#8995ba"))))
   (org-special-keyword . '((t (:foreground "#6272a4"))))
   (org-drawer          . '((t (:foreground "#44475a"))))
   (org-checkbox        . '((t (:foreground "#bd93f9"))))
@@ -2539,14 +2499,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
   (org-priority        . '((t (:foreground "#f1fa8c")))) ; #ebe087
   (org-todo            . '((t (:foreground "#ad92dd" :weight bold :width condensed))))
   (org-done            . '((t (:background "#282a36" :foreground "#3b216a" :strike-through nil :weight bold :width condensed)))))
-
-(leaf olivetti
-  :ensure t
-  :hook (org-agenda-mode-hook . olivetti-mode)
-  :custom
-  (olivetti-style        . 'fancy)
-  (olivetti-body-width   . 0.35)
-  (olivetti-margin-width . 20))
 
 (leaf org-modern
   :doc "To Be Modern Looks"
@@ -2569,8 +2521,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
   ;; todo faces
   (org-modern-todo-faces
    . (quote (("TODO" :background "#673AB7" :foreground "#f8f8f2")
-             ("WAIT" :background "#6272a4" :foreground "#f8f8f2")
-             ("NEXT" :background "#f1fa8c" :foreground "#1E2029") ; #bd93f9
              ("DONE" :background "#373844" :foreground "#b0b8d1"))))
   ;; use nerd font icons
   (org-modern-list           . '((?+ . "◦") (?- . "◦") (?* . "•")))
@@ -2597,14 +2547,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
 #+end_src
 ** Org Babel
 #+begin_src emacs-lisp
-
-(leaf ox-hugo
-  :doc "Org to Markdown for Hugo"
-  :url "https://ox-hugo.scripter.co/"
-  :if (executable-find "hugo")
-  :after ox
-  :ensure t
-  :require t)
 
 (leaf ox-qmd
   :doc "Org exporter for Qiita Markdown"
@@ -2676,115 +2618,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
          (python   . t)
          (shell    . t))))
 #+end_src
-** Org Roam
-#+begin_src emacs-lisp
-
-(leaf my-org-roam
-  :load-path "~/.emacs.d/lisp/"
-  :require t)
-
-(leaf org-roam
-  :doc "A plain-text personal knowledge management system."
-  :url "https://www.orgroam.com/"
-  :after my-org-roam
-  :ensure t
-  ;; :require org-roam-protocol
-  :custom
-  (org-roam-directory . my/org-roam-dir)
-  (org-roam-database-conector 'sqlite-builtin)
-  :preface
-  (require 'my-org-roam)
-  :config
-  (org-roam-db-autosync-mode)
-
-  (setq org-roam-dailies-capture-templates
-        '(("d" "default" entry
-           (function
-            (lambda ()
-              (let* ((template-dir my/org-daily-templates-dir)
-                     (current-year (string-to-number (format-time-string "%Y")))
-                     (current-month (string-to-number (format-time-string "%m")))
-                     (current-day (string-to-number (format-time-string "%d")))
-                     (current-weekday (format-time-string "%u"))
-                     (next-month (if (= current-month 12) 1 (1+ current-month)))
-                     (year-of-next-month (if (= current-month 12) (1+ current-year) current-year))
-                     (first-day-of-next-month (encode-time 0 0 0 1 next-month year-of-next-month))
-                     (last-day-of-current-month (time-subtract first-day-of-next-month (seconds-to-time 86400)))
-                     (last-sunday-of-month (org-read-date nil t
-                                                          (format-time-string "%Y-%m-%d sun"
-                                                                              last-day-of-current-month)))
-                     (last-sunday (time-to-days last-sunday-of-month))
-                     (today (time-to-days (current-time)))
-                     ;; テンプレートファイルを決定
-                     (template-file
-                      (cond
-                       ;; 火曜日または木曜日の場合
-                       ((or (equal current-weekday "2") (equal current-weekday "4"))
-                        (expand-file-name "inbox_day.org" template-dir))
-                       ;; 土曜日の場合
-                       ((equal current-weekday "6")
-                        (expand-file-name "weekend.org" template-dir))
-                       ;; 最後の日曜日の場合
-                       ((and (equal current-weekday "7") (equal today last-sunday))
-                        (expand-file-name "last_sunday.org" template-dir))
-                       ;; それ以外の日曜日の場合
-                       ((equal current-weekday "7")
-                        (expand-file-name "sunday.org" template-dir))
-                       ;; その他すべて
-                       (t (expand-file-name "daily.org" template-dir)))))
-                ;; テンプレートファイルの内容を読み込んで返す
-                (with-temp-buffer
-                  (insert-file-contents template-file)
-                  (buffer-string)))))
-           :target (file+head "%<%Y-%m-%d>.org"
-                              "#+title: %<%Y-%m-%d (%a)>\n")))))
-(leaf *hydra-org-roam
-  :doc "Org-roam commands"
-  :bind ("C-c n" . *hydra-org-roam/body)
-  :preface
-  (setq org-agenda-custom-commands
-        '(("n" "Custom Agenda with TODO States"
-           ((todo "TODO"    ((org-agenda-overriding-header "TODO Tasks")))
-            (todo "PENDING" ((org-agenda-overriding-header "Pending Tasks")))
-            (todo "INBOX"   ((org-agenda-overriding-header "Inbox Tasks")))
-            (todo "SOMEDAY" ((org-agenda-overriding-header "Someday Tasks")))
-            (todo "DONE"    ((org-agenda-overriding-header "Completed Tasks")))))))
-  :pretty-hydra
-  ((:title "Org-Roam Menu" :color blue :quit-key "q" :separator "╌")
-   ("Find"
-    (("F"   org-roam-node-find             "Node")
-     ("f t" my/org-roam-find-task          "Task")
-     ("f r" my/org-roam-find-reference     "Reference")
-     ("f j" my/org-roam-find-job-note      "Job")
-     ("f b" my/org-roam-find-blog-post     "Blog")
-     ("f c" my/org-roam-find-configuration "config"))
-    "Insert"
-    (("i" org-roam-node-insert         "insert node")
-     ("I" org-id-get-create            "create ID"))
-    "Capture"
-    (("C"   my/org-roam-capture-inbox     "Inbox")
-     ("c c" my/org-roam-capture-next      "Next")
-     ("c t" my/org-roam-capture-task      "Task")
-     ("c r" my/org-roam-capture-reference "Reference")
-     ("c j" my/org-roam-capture-job-note  "Job")
-     ("c t" my/org-capture-todo-to-current-headline  "Append TODO")
-     ("c d" my/org-roam-dailies-capture-and-push  "Dailies")
-     ("c b" my/org-roam-capture-blog-post "Blog"))
-    "Refile"
-    (("r p" my/org-roam-refile-to-project "Project")
-     ("r n" my/org-roam-refile-to-next    "Next")
-     ("r i" my/org-roam-refile-to-inbox   "Inbox")
-     ("r s" my/org-roam-refile-to-someday "Someday")
-     ("r d" my/org-roam-refile-to-archive "Done")
-     ("r w" my/org-roam-refile-to-wait    "Wait")
-     ("r b" my/org-roam-capture-blog-post "capture blog"))
-    "Other"
-    (("o" my/open-hugo "open Hugo")
-     ("b" my/export-subtree-to-hugo  "export to Hugo")
-     ("a" (lambda() (interactive) (org-agenda nil "f")) "agenda")
-     ("s" org-store-link            "store link")))))
-
-#+end_src
 ** Org Capture
 #+begin_src emacs-lisp
 (leaf *org-capture
@@ -2792,40 +2625,15 @@ literate programming, maintaining to-do lists, planning projects, and more"
   :url "https://orgmode.org/manual/Capture-templates.html#Capture-templates"
   :after org
   :preface
-  (defun today-journal-file () (concat org-journal-dir (format-time-string org-journal-file-format (current-time))))
-  (defun new-card-file     () (concat org-cards-dir (read-string "file name: ") ".org"))
-  (defun new-post-file     () (concat org-posts-dir (read-string "file name: ") ".org"))
-  (defun new-book-file     () (concat org-books-dir (read-string "file name: ") ".org"))
-  (defun new-work-file     () (concat org-work-dir "card/" (read-string "file name: ") ".org"))
-  (defun new-qreview-file      () (concat org-work-dir
-                                          "review/"
-                                          (format-time-string "quarter-review-%Y-Q" (current-time))
-                                          (- (string-to-number (format-time-string "%q" (current-time))) 1)
-                                          ".org"))
-  (defun new-mreview-file      () (concat org-work-dir "review/" (format-time-string "monthly-review-%Y-%m.org" (current-time))))
-  (defun new-wreview-file      () (concat org-work-dir "review/" (format-time-string "weekly-review-%Y-W%U.org" (current-time))))
   (defun playground-file (lang ext) (format "%s/%s/%s/main.%s" playground-dir lang (format-time-string "%Y%m%d%H%M" (current-time)) ext))
   (defun go-playground-file     () (playground-file "go" "go"))
   (defun cpp-playground-file    () (playground-file "cpp" "cpp"))
   (defun rust-playground-file   () (playground-file "rust" "rs"))
   (defun python-playground-file () (playground-file "python" "py"))
   :config
-  (defun my/org-capture-target-under-current-heading ()
-    "現在の見出しの配下をキャプチャのターゲットに設定します。"
-    (save-excursion
-      (org-end-of-subtree t t)
-      (point)))
   (setq playground-dir "~/playground")
-  (require 'browse-at-remote)
   (setq org-capture-templates
-        '(;; Task Management
-          ("t" "TODO under current headline" entry
-           (function my/org-capture-target-under-current-heading)
-           "* TODO %?\n :PROPERTIES:\n :CATEGORY: ToDo\n :END:\n" :empty-lines 1)
-          ;; Code Reading Notes
-          ("c" "Store the code-reading notes with links." plain (function my/org-code-info-store-point) "%?\n%(with-current-buffer (org-capture-get :original-buffer) (browse-at-remote-get-url))\n# %a\n")
-          ("j" "Immediately store code-reading links."    plain (function my/org-code-info-store-point) "%(with-current-buffer (org-capture-get :original-buffer) (browse-at-remote-get-url))\n# %a\n" :immediate-finish t)
-          ;; Coding Playground
+        '(;; Coding Playground
           ("P" "Write a python snippet code." plain (file python-playground-file) "" :immediate-finish t :jump-to-captured t)
           ("C" "Write a c++ snippet code."    plain (file cpp-playground-file)    "" :immediate-finish t :jump-to-captured t)
           ("R" "Write a rust snippet code."   plain (file rust-playground-file)   "" :immediate-finish t :jump-to-captured t))))
@@ -2846,209 +2654,6 @@ literate programming, maintaining to-do lists, planning projects, and more"
 ;; | hoge                 | hogeghoe | age               |
 ;; |----------------------+----------+-------------------|
 ;; | 今日もいい天気ですね | お、     | 等幅になった :+1: |
-** Org Agenda
-#+begin_src emacs-lisp
-(leaf *org-agenda
-  :doc "TODO & Schedule management system"
-  :url "https://orgmode.org/manual/Agenda-Views.html"
-  :after org
-  :bind
-  (:org-agenda-mode-map
-   ("r" . org-agenda-refile))
-  :preface
-  (defun org-clock-out-and-save ()
-    "Save buffers and stop clocking."
-    (ignore-errors (org-clock-out) t)
-    (save-some-buffers t))
-  (defun color-org-agenda-header (tag col)
-    "Set s color to org-agenda header with the specified tag."
-    (interactive)
-    (goto-char (point-min))
-    (while (re-search-forward tag nil t)
-      (add-text-properties (match-beginning 0) (pos-eol)
-                           `(face (:foreground ,col)))))
-  :hook
-  (kill-emacs-hook . org-clock-out-and-save)
-  :custom
-  (org-agenda-window-setup               . 'other-tab)
-  (org-deadline-warning-days             . 7)
-  (org-clock-out-remove-zero-time-clocks . t)
-  (org-clock-clocked-in-display          . 'both)
-  (org-agenda-span                       . 'day)
-  (org-agenda-current-time-string        . "← now")
-  (org-agenda-include-diary              . t)
-  (org-agenda-include-deadlines          . t)
-  (org-agenda-start-with-log-mode        . t)
-  (org-agenda-compact-blocks             . t)
-  (org-agenda-skip-scheduled-if-done     . t)
-  (org-agenda-skip-deadline-if-done      . t)
-  (org-agenda-block-separator            . nil)
-  (org-agenda-log-mode-items             . (quote (closed clock)))
-  (org-agenda-time-grid
-   . '((daily today require-timed)
-       (0800 1000 1200 1500 1700 1900 2100 2300)
-       "-" "────────────────"))
-  :custom-face
-  (org-scheduled-today . '((t (:foreground "#f8f8f2")))))
-
-(leaf *org-agenda-files
-  :doc "Agenda の対象ディレクトリ"
-  :custom
-  (org-agenda-files . `(,my/org-gtd-dir
-                        ,my/org-daily-dir)))
-
-(leaf org-super-agenda
-  :doc "Supercharge your Org daily/weekly agenda by grouping items Topics"
-  :url "https://github.com/alphapapa/org-super-agenda"
-  :if (display-graphic-p)
-  :ensure t
-  :global-minor-mode org-super-agenda-mode
-  :custom-face
-  (org-super-agenda-header   . '((t (:inherit custom-button-pressed
-                                              :weight bold
-                                              :height 1.05
-                                              :background "#1640b0"
-                                              ;; :font "Go Mono Square"
-                                              :box (:line-width 1 :color "white" :style released-button)))))
-  :bind
-  (:org-agenda-mode-map
-   ("s-p" . my/cycle-agenda-views))
-  :config
-  (defvar my/custom-agenda-views nil)
-  (defvar my/current-agenda-view 0)
-  (defun my/set-custom-agenda-views ()
-    "Set up custom agenda views."
-    (setq my/custom-agenda-views
-          (cl-remove-if-not
-           (lambda (cmd) (and (stringp (car cmd))
-                              (string-match-p "^[a-zA-Z]$" (car cmd))))
-           org-agenda-custom-commands)))
-
-  (defun my/cycle-agenda-views ()
-    "Cycle through custom agenda views."
-    (interactive)
-    (my/set-custom-agenda-views)
-    (if (null my/custom-agenda-views)
-        (message "No custom agenda views defined")
-      (setq my/current-agenda-view
-            (mod (1+ my/current-agenda-view) (length my/custom-agenda-views)))
-      (let* ((view (nth my/current-agenda-view my/custom-agenda-views))
-             (key (car view))
-             (desc (cadr view)))
-        (org-agenda nil key)
-        (message "Current view: %s" desc))))
-
-  (defun my/org-agenda-prefix-format-todo ()
-    "Return formatted prefix for TODO items in org-agenda view."
-    (let* ((state (org-get-todo-state))
-           (base-string
-            (cond
-             ((string= state "TODO") (concat "       " state))
-             ((string= state "NEXT") "      ")
-             (t "      "))))
-      base-string))
-
-  (setq org-agenda-category-icon-alist
-        `(("Work" ,(list (all-the-icons-material "work" :height 0.9 :face '(:foreground "#00c06f"))) nil nil :ascent center)
-          ("Book" ,(list (all-the-icons-faicon "book" :height 0.9 :face '(:foreground "#2fafff"))) nil nil :ascent center)
-          ("Video" ,(list (all-the-icons-faicon "youtube-play" :height 0.9 :face '(:foreground "#ff5f59"))) nil nil :ascent center)
-          ;; ("Family.s" ,(list (all-the-icons-faicon "home" :v-adjust 0.005)) nil nil :ascent center)
-          ;; ("Producer.p" ,(list (all-the-icons-faicon "youtube-play" :height 0.9)) nil nil :ascent center)
-          ("Personal" ,(list (all-the-icons-faicon "home" :height 0.9 :face '(:foreground "#dfaf7a"))) nil nil :ascent center)
-          ("Daily" nil)
-          ("Emacs" ,(list (all-the-icons-fileicon "emacs" :height 0.9 :face '(:foreground "#ff66ff"))) nil nil :ascent center)))
-
-  ;; inspired by https://github.com/alphapapa/org-super-agenda/blob/master/examples.org#zaen323
-  (setq org-agenda-custom-commands
-        `(("r" "Review view"
-           ((todo "DONE")))
-          ("u" "Super view"
-           ((agenda "" ((org-agenda-todo-keyword-format "")
-                        (org-super-agenda-unmatched-name "Scheduled")
-                        (org-super-agenda-groups
-                         '((:name "Today" :time-grid t)
-                           (:discard (:category "Work" :category "Diary"))))))
-            (todo "" ((org-agenda-overriding-header "")
-                      (org-agenda-todo-keyword-format "")
-                      (org-agenda-prefix-format '((todo . "  %-9:c %e %-10T")))
-                      (org-super-agenda-date-format "%e %B %Y")
-                      (org-super-agenda-unmatched-name "Others")
-                      (org-super-agenda-keep-order t)
-                      (org-super-agenda-groups
-                       '((:discard (:category "Work"))
-                         (:name "Inbox"       :tag "#inbox"     :face (:foreground "#ccd0dc"))
-                         (:name "Next Action" :todo "NEXT"      :face (:foreground "#ccd0dc"))
-                         (:name "Waiting"     :todo "WAIT"      :face (:foreground "#6272a4"))
-                         (:discard (:anything t))))))))
-          ("n" "Next view"
-           ((todo "" ((org-agenda-overriding-header "")
-                      (org-agenda-todo-keyword-format "")
-                      (org-agenda-prefix-format '((todo . "  %-9:c %e")))
-                      (org-super-agenda-date-format "%e %B %Y")
-                      (org-super-agenda-unmatched-name "Others")
-                      (org-super-agenda-keep-order t)
-                      (org-super-agenda-groups
-                       '(;;(:discard (:category "Work"))
-                         (:name "Inbox"       :tag "#inbox"     :face (:foreground "#ccd0dc"))
-                         (:name "Today"       :deadline today   :face (:foreground "#ccd0dc"))
-                         (:name "Next Action" :todo "NEXT"      :face (:foreground "#ccd0dc"))
-                         (:discard (:anything t))))))))
-          ("w" "Work view"
-           ((agenda "" ((org-agenda-overriding-header "")
-                        (org-agenda-todo-keyword-format "")
-                        (org-deadline-warning-days 4)
-                        (org-super-agenda-groups
-                         '((:name "Timeline" :time-grid t)
-                           (:discard (:not (:category "Work" :category "Diary")))))))
-            (todo "" ((org-agenda-overriding-header "")
-                      (org-agenda-prefix-format '((todo . " ")))
-                      (org-super-agenda-keep-order t)
-                      (org-super-agenda-groups
-                       '((:discard (:not (:category "Work" :category "Diary")))
-                         (:name "Inbox" :tag "#inbox"  :face (:foreground "#ccd0dc"))
-                         (:name "Goals" :children todo :face (:foreground "#ccd0dc"))
-                         (:name "Tasks" :todo "NEXT" :todo "TODO")
-                         (:name "Waiting"     :todo "WAIT"   :face (:foreground "#6272a4"))
-                         (:name "Others" :not (:tag "#someday" :tag "#routine" :tag "#event") :face (:foreground "#6272a4"))
-                         (:discard (:anything t))))))))
-          ("f" "Full view"
-           ((agenda "" ((org-agenda-todo-keyword-format "")
-                        (org-agenda-format-date "")
-                        (org-deadline-warning-days 4)
-                        (org-super-agenda-date-format "")
-                        (org-agenda-prefix-format '((agenda . "      %-2i %8t")))
-                        (org-super-agenda-groups
-                         '((:name "Timeline " :time-grid t)
-                           (:discard (:anything t))))))
-            (todo "" ((org-agenda-overriding-header "")
-                      (org-agenda-todo-keyword-format "")
-                      (org-agenda-prefix-format
-                       '((todo . "  %-4i%(my/org-agenda-prefix-format-todo)%e %T")))
-                      (org-super-agenda-groups
-                       '(
-                         (:name " Overdue "  :order 1 :deadline past :face 'error)
-                         (:name "Project "     :order 3 :todo "PROJ"   :face (:foreground "#ccd0dc"))
-                         (:name "Next Action " :order 2 :and (:todo ("NEXT" "TODO") :not (:category "Daily"))
-                                :file-path ,my/org-gtd-dir)
-                         (:name "Waiting "     :order 4 :todo "WAIT"    :face (:foreground "#ccd0dc"))
-                         (:discard (:anything t))
-                         ))))))
-          ("i" "Inbox view"
-           ((todo "" ((org-agenda-overriding-header "")
-                      (org-agenda-todo-keyword-format "")
-                      (org-agenda-prefix-format
-                       '((todo . "  %-4i%(my/org-agenda-prefix-format-todo)%e %T")))
-                      (org-super-agenda-date-format "%e %B %Y")
-                      (org-super-agenda-groups
-                       '((:name "Inbox"   :todo "INBOX"   :face (:foreground "#ccd0dc"))
-                         (:name "Project" :todo "PROJ"    :face (:foreground "#ccd0dc"))
-                         (:name "Someday" :todo "SOMEDAY" :face (:foreground "#ccd0dc"))
-                         (:discard (:anything t))
-                         ))))))
-          )))
-
-#+end_src
-
 ** Org Download
 #+begin_src emacs-lisp
 (leaf org-download
@@ -3239,9 +2844,7 @@ literate programming, maintaining to-do lists, planning projects, and more"
   ((:title " Git" :color blue :quit-key "q" :foreign-keys warn :separator "╌")
    (" GitHub"
     (("r" browse-at-remote             "browse at point")
-     ("k" browse-at-remote-kill        "copy url")
-     ("l" my/org-code-capture-here     "store capture point")
-     ("L" my/capture-code-reading-link "insert link")))))
+     ("k" browse-at-remote-kill        "copy url")))))
 
 (leaf *hydra-shortcuts
   :doc "General Shortcuts"
@@ -3284,15 +2887,7 @@ literate programming, maintaining to-do lists, planning projects, and more"
      ("!" consult-projectile-run-async-shell-command-in-root "$async"))
     "Org"
     (("c" org-capture "capture")
-     ("l" calendar "calendar")
-     ("a" org-agenda "agenda")
-     ("o" org-clock-goto "clock")
-     ("j" (if (file-exists-p (today-journal-file))
-              (org-open-file (today-journal-file))
-            (org-journal-new-entry ""))
-      "journal")
-     ("t" (org-open-file org-task-file) "task")
-     ("w" (org-open-file org-work-file) "work")))))
+     ("l" calendar "calendar")))))
 
 (defalias 'remove_db_schema_quotes
    (kmacro "C-d C-s C-s <return> C-b C-k , C-f C-s C-s <return> C-b"))
@@ -3384,7 +2979,7 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   (autoload 'enghi-command-map "enghi" nil nil 'keymap)
   ;; 別ファイルのコマンドも、キーマップから直接呼べるようにしておく
   (autoload 'enghi-consult-search "enghi-consult" "enghi を consult で検索する" t)
-  :bind (("C-c w" . enghi-command-map))
+  :bind (("C-c n" . enghi-command-map))
   :custom ((enghi-server-url . "http://127.0.0.1:7777")
            (enghi-request-timeout . 10)
            ;; 記事は xwidget の webkit で、少し余白を持たせて Emacs 内に開く
@@ -3396,14 +2991,9 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   :doc "dashboard の起動画面に enghi の欄 (Inbox・今日・近い締切) を出す"
   :load-path "~/Projects/SideProjects/enghi.el"
   :after dashboard
+  :require t
   :config
-  ;; enghi.el の dashboard-section ブランチをマージするまではファイルが無い。
-  ;; 生成関数の無い項目を dashboard-items に入れると起動画面ごと壊れるので、
-  ;; 読み込めたときだけ agenda の欄と差し替える
-  (when (require 'enghi-dashboard nil t)
-    (add-to-list 'dashboard-heading-icons '(enghi . "nf-oct-checklist"))
-    (setq dashboard-items
-          (cons '(enghi . 5) (assq-delete-all 'agenda (copy-tree dashboard-items))))))
+  (add-to-list 'dashboard-heading-icons '(enghi . "nf-oct-checklist")))
 #+end_src
 * Post Process
 #+begin_src emacs-lisp
