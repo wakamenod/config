@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID:       D01E04A4-F20D-4B2D-8676-2FF917629458
+:END:
+#+title: emacs-plus build config
+#+category: Configuration
+#+filetags: Configuration
+
+emacs-plus (Homebrew) のビルド設定。
+=~/.config/emacs-plus/= 以下へ tangle される。
+
+* build.yml
+アイコン、パッチ、revision を指定する。
+ローカルパッチも =sha256= が必須で、ハッシュが一致しないとビルドが止まる。
+パッチの中身を変えたら =shasum -a 256= で計算し直すこと。
+
+#+begin_src yaml :tangle ~/.config/emacs-plus/build.yml :mkdirp yes
+# Use a community icon (see community/registry.json for available options)
+icon: liquid-glass
+
+# Apply community patches
+patches:
+  - my-patch:
+      url: https://raw.githubusercontent.com/takaxp/ns-inline-patch/master/emacs-head-inline.patch
+      sha256: 1c77650e1eb5f661efc3fab02a9c8491915e5e65a40caf1503aff0e222c1a613
+  # community/patches/aggressive-read-buffering の emacs-31.patch。
+  # 公式の対応は 29〜31 だけなので、32 ではローカルパッチとして当てる。
+  - aggressive-read-buffering:
+      url: ~/.config/emacs-plus/aggressive-read-buffering.patch
+      sha256: cf3614dfc835398d7f3eb992edd5ee1fe1380a61480cd659dc2a30f23c70e607
+#+end_src
+
+* Patches
+** aggressive-read-buffering
+macOS の pty は 1 回の =read= で 1024 バイトまでしか返さない。
+ちょうど 1024 バイト読めたときは、データが尽きるか
+=read-process-output-max= に達するまで読み足す。
+vterm や ghostel のように出力が多いターミナルで効く。
+LSP は pipe を使うので対象外。
+
+作者は aport（emacs-plus の community patch）。
+元は tap の =community/patches/aggressive-read-buffering/emacs-31.patch= 。
+tangle はブロック末尾の空白だけの行を落とすため、最後のコンテキスト行を外し、
+hunk ヘッダの行数を 1 つずつ減らしてある（6→5, 28→27）。
+インデントとタブを崩さないよう =-i= を付けている。
+
+#+begin_src diff -i :tangle ~/.config/emacs-plus/aggressive-read-buffering.patch :mkdirp yes
+diff --git a/src/sysdep.c b/src/sysdep.c
+index a8320e1db26..918c23e9db6 100644
+--- a/src/sysdep.c
++++ b/src/sysdep.c
+@@ -2778,5 +2778,27 @@ emacs_intr_read (int fd, void *buf, ptrdiff_t nbyte, bool interruptible)
+     }
+   while (result < 0 && errno == EINTR);
+ 
++  /* On macOS the maximum buffer size for a tty/pty is 1024 bytes. If
++     we've asked for more, continue reading data in a loop until we've
++     read NBYTE bytes or there is no more data.  Add a short delay
++     between reads to give the writer an opportunity to put more
++     data. This significantly improves the performance of
++     read_process_output() when receiving large quanities of data.  */
++  if ((result == 1024) && (nbyte > result) && isatty(fd))
++    {
++      ssize_t n;
++
++      do
++	{
++	  usleep (25);
++	  if (interruptible)
++	    maybe_quit ();
++	  n = read (fd, buf + result, nbyte - result);
++	  if (n > 0)
++	    result += n;
++	}
++      while ((n < 0 && errno == EINTR) || (n > 0));
++    }
++
+   return result;
+ }
+ 
+#+end_src
+
+* Install
+=build.yml= を変えたら入れ直す。=--with-xwidgets= は xwidget-webkit 用。
+
+#+begin_src sh :tangle no
+brew uninstall emacs-plus@32
+HOMEBREW_OPTFLAGS="-std=gnu17" brew install d12frosted/emacs-plus/emacs-plus@32 --with-xwidgets
+#+end_src

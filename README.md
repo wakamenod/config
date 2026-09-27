@@ -24,6 +24,7 @@ tangle 先はすべて `:tangle` ヘッダに書かれています。取り込�
 | --- | --- | --- |
 | `emacs_init.org` | `~/.emacs.d/init.el` | メインの Emacs 設定。パッケージ管理は [leaf.el](https://github.com/conao3/leaf.el) |
 | `early-init.org` | `~/.emacs.d/early-init.el` | 起動前の初期化 |
+| `emacs-plus.org` | `~/.config/emacs-plus/…` | emacs-plus (Homebrew) の `build.yml` とローカルパッチ |
 
 `emacs_init.org` の第一レベル見出し: Bootstrap / General / Appearance / Platform /
 Navigation & Editing / Completion & Search / Development Tools / Programming Languages /
