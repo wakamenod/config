@@ -1770,7 +1770,8 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
 #+begin_src emacs-lisp
 (leaf ecc
   :doc "Run Claude Code CLI from Emacs"
-  :vc (:url "https://github.com/wakamenod/emacs-claude-code" :rev :newest)
+  :vc (:url "https://github.com/wakamenod/emacs-claude-code"
+       :branch "develop" :rev :newest)
   :init
   (leaf-key "C-c c" 'ecc-global-map)
   :custom
