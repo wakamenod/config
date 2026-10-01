@@ -3007,6 +3007,12 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   :config
   (add-to-list 'dashboard-heading-icons '(enghi . "nf-oct-checklist")))
 #+end_src
+** Notion
+#+begin_src emacs-lisp
+(leaf notion-viewer
+  :vc (:url "https://github.com/wakamenod/notion-viewer.el")
+  :bind (("C-c N" . notion-viewer-command-map)))
+#+end_src
 * Post Process
 #+begin_src emacs-lisp
 ;; early-init.el は起動中だけ GC を止めているので起動が終わってから戻す
