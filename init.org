@@ -1699,13 +1699,23 @@ deactivating there would turn IME off after each committed word."
   (treesit-auto-add-to-auto-mode-alist)
   (global-treesit-auto-mode))
 #+end_src
+** Xref
+#+begin_src emacs-lisp
+(leaf xref
+  :custom
+  ;; ジャンプ履歴をウィンドウごとに持ち、分割して読むときに履歴が混ざらないようにする
+  (xref-history-storage . #'xref-window-local-history))
+#+end_src
 ** Eglot
 #+begin_src emacs-lisp
 (leaf eglot
   :ensure t
   :bind (:eglot-mode-map
               ("C-c C-d" . eglot-help-at-point)
-              ("C-c C-r" . eglot-code-actions))
+              ("C-c C-r" . eglot-code-actions)
+              ;; グローバルの M-, (previous-buffer) を上書きして、定義ジャンプの履歴で戻る
+              ("M-,"     . xref-go-back)
+              ("C-M-,"   . xref-go-forward))
   :hook
   (go-ts-mode-hook . eglot-ensure)
   (LaTeX-mode-hook . eglot-ensure)
