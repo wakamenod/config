@@ -719,8 +719,11 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   :if (and (equal system-type 'darwin) (window-system))
   :config
   (defun mac-ime-deactivate-on-posframe-show (&rest _)
-    "Deactivate macOS IME when posframe is displayed."
-    (mac-ime-deactivate))
+    "Deactivate macOS IME when posframe is displayed outside the minibuffer.
+vertico-posframe calls `posframe-show' on every input change, so
+deactivating there would turn IME off after each committed word."
+    (unless (active-minibuffer-window)
+      (mac-ime-deactivate)))
   (advice-add 'posframe-show :before #'mac-ime-deactivate-on-posframe-show)
   (add-hook 'minibuffer-setup-hook 'mac-ime-deactivate)
   (add-hook 'isearch-mode-hook #'mac-ime-deactivate-sticky)
