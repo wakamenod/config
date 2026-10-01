@@ -506,7 +506,8 @@ IME が日本語入力のままになるのを防ぐ。
   "manipulators": [
     {
       "from": {
-        "key_code": "f1"
+        "key_code": "f1",
+        "modifiers": { "optional": ["any"] }
       },
       "to": [
         {
@@ -526,7 +527,8 @@ IME が日本語入力のままになるのを防ぐ。
   "manipulators": [
     {
       "from": {
-        "key_code": "f2"
+        "key_code": "f2",
+        "modifiers": { "optional": ["any"] }
       },
       "to": [
         {
