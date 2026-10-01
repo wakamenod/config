@@ -374,6 +374,16 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
 #+end_src
 
 #+begin_src emacs-lisp
+;; NOTE: [workaround]: Emacs 32 master (61706edc79 以降) では、キーキャップ
+;; 絵文字 (数字 + U+FE0F + U+20E3) があるバッファで表示計算が
+;; "Attempt to shape zero-length text" で止まる。U+20E3 だけ絵文字フォント
+;; (字形がない) に回されて長さ 0 で合成されるため。絵文字扱いから外す。
+(when (boundp 'auto-composition-emoji-eligible-codepoints)
+  (setq auto-composition-emoji-eligible-codepoints
+        (delq #x20E3 auto-composition-emoji-eligible-codepoints)))
+#+end_src
+
+#+begin_src emacs-lisp
 ;; NOTE: Run `all-the-icons-install-fonts' command at first time!
 (leaf all-the-icons
   :if (display-graphic-p)
