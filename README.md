@@ -30,6 +30,12 @@ tangle 先はすべて `:tangle` ヘッダに書かれています。取り込�
 Navigation & Editing / Completion & Search / Development Tools / Programming Languages /
 Org Mode / Applications / Post Process
 
+### Claude Code
+
+| ファイル | tangle 先 | 内容 |
+| --- | --- | --- |
+| `skills.org` | `~/.claude/skills/<name>/SKILL.md` | ユーザースキル |
+
 ### シェル / ターミナル
 
 | ファイル | tangle 先 |
