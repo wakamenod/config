@@ -1330,6 +1330,44 @@ deactivating there would turn IME off after each committed word."
       (progn
         (funcall #'xwidget-webkit-browse-url url)))))
 
+(leaf *explanations
+  :doc "Find and search the HTML written by the explain-diff-html skill"
+  :after consult
+  :require consult
+  :bind
+  (("C-c x f" . my/explanations-find)
+   ("C-c x g" . my/explanations-grep))
+  :preface
+  (defvar my/explanations-dir (expand-file-name "~/Documents/explanations/")
+    "Directory where the explain-diff-html skill saves its HTML.")
+  (defun my/explanations--title (file)
+    "Return the <title> of FILE, reading only the head of the file."
+    (with-temp-buffer
+      (insert-file-contents file nil 0 4096)
+      (when (re-search-forward "<title>\\([^<]*\\)" nil t)
+        (string-trim (match-string 1)))))
+  (defun my/explanations-find ()
+    "Pick an explanation by file name or title, newest first, and open it in the browser."
+    (interactive)
+    (let* ((files (reverse (directory-files my/explanations-dir nil "\\.html\\'")))
+           (titles (mapcar (lambda (f)
+                             (cons f (my/explanations--title
+                                      (expand-file-name f my/explanations-dir))))
+                           files))
+           (file (consult--read
+                  files
+                  :prompt "Explanation: "
+                  :sort nil
+                  :require-match t
+                  :annotate (lambda (f)
+                              (when-let* ((title (alist-get f titles nil nil #'equal)))
+                                (concat "  " (propertize title 'face 'completions-annotations)))))))
+      (browse-url-of-file (expand-file-name file my/explanations-dir))))
+  (defun my/explanations-grep ()
+    "Search the full text of the explanations with ripgrep."
+    (interactive)
+    (consult-ripgrep my/explanations-dir)))
+
 #+end_src
 ** Embark
 #+begin_src emacs-lisp
