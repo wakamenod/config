@@ -1846,6 +1846,18 @@ deactivating there would turn IME off after each committed word."
 #+end_src
 
 #+begin_src emacs-lisp
+(leaf typewhisper
+  :doc "Dictate with TypeWhisper and fix errors with Claude"
+  :vc (:url "https://github.com/wakamenod/typewhisper.el" :rev :newest)
+  :bind (("C-c d d" . typewhisper-dictate)
+         ("C-c d f" . typewhisper-dictate-and-fix)
+         ("C-c d x" . typewhisper-fix)
+         ("C-c d c" . typewhisper-corrections)
+         ("C-c d t" . typewhisper-terms))
+  :global-minor-mode typewhisper-mode)
+#+end_src
+
+#+begin_src emacs-lisp
 (leaf eca
   :pre-setq ((package-vc-selected-packages
               . '((eca :url "https://github.com/editor-code-assistant/eca-emacs"))))
