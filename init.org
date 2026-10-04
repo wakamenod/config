@@ -1850,8 +1850,8 @@ deactivating there would turn IME off after each committed word."
   :doc "Dictate with TypeWhisper and fix errors with Claude"
   :vc (:url "https://github.com/wakamenod/typewhisper.el" :rev :newest)
   :bind (("s-d"     . typewhisper-dictate)
-         ("s-f"     . typewhisper-dictate-and-fix)
-         ("C-c d x" . typewhisper-fix)
+         ("s-f"     . typewhisper-fix)
+         ("C-c d d" . typewhisper-dictate-and-fix)
          ("C-c d c" . typewhisper-corrections)
          ("C-c d t" . typewhisper-terms))
   :global-minor-mode typewhisper-mode)
