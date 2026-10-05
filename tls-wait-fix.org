@@ -1,0 +1,88 @@
+:PROPERTIES:
+:ID:       22BF0847-8607-48BE-9412-C1745BAA8FA1
+:END:
+#+title: Emacs TLS Wait Fix
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/lisp/my-tls-wait-fix.el
+
+Emacs の不具合の回避策。非同期の TLS 接続がハンドシェイク中のとき、
+別のプロセスを指定した =(accept-process-output PROC ...)= が戻らなくなり、
+CPU 100% で固まる。
+
+=init.org= の先頭（Bootstrap > Startup）で、どのパッケージよりも先に load する。
+再現スクリプトは =~/emacs-tls-wait-repro.el= にある。Emacs 側が直ったら、
+=init.org= の load 行と一緒にこのファイルも消してよい。
+
+* ヘッダと仕組み
+固まる仕組みと回避の考え方はコメントに書いてある。
+要点: プロセスを指定した待ちでは、他の接続の TLS ハンドシェイクが進まない。
+そのソケットは読めるのに何も消費されないので、待っているプロセスの出力を
+一度読むと、タイムアウトを見ないループから抜けられなくなる。
+
+#+begin_src emacs-lisp
+;;; my-tls-wait-fix.el --- accept-process-output が戻らなくなるのを避ける  -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Emacs 32.0.50 (process.c の wait_reading_process_output) の不具合への回避策。
+;;
+;; 非同期の TLS 接続（url-retrieve など）がハンドシェイク中で、そのソケットに
+;; 受信データがある（または相手が閉じた）とき、別のプロセス P を指定した
+;; (accept-process-output P ...) は、P の出力を読んだ後に戻らなくなる。
+;;
+;;   - P を指定した待ちでは、他のプロセスの TLS ハンドシェイクは進まない。
+;;   - ハンドシェイクが済むまで TLS の読み込みは常に EAGAIN になり、何も消費しない。
+;;     そのため select は毎回すぐ「読める」と返す。
+;;   - P の出力を一度読むと wait が MINIMUM になり、タイムアウトを見なくなる。
+;;     抜ける条件は select が 0 を返すことだけなので、無限ループになる（CPU 100%）。
+;;
+;; canvas-browser の仮想ディスプレイ待ちで実際に固まった。同じ形の呼び出しは
+;; migemo、emacsql、pdf-tools などにもある。
+;;
+;; 回避策: 他に接続中（status が connect、TLS のハンドシェイク中を含む）の
+;; ネットワークプロセスがあるときだけ、プロセスを指定した呼び出しに
+;; JUST-THIS-ONE = t を付ける。そうすると select はそのプロセスだけを見るので、
+;; この状態にはならない。t（整数ではない）なのでタイマーは今までどおり動く。
+;; 該当する接続がないときは何も変えない。
+;;
+;; Emacs 側が直ったら、この load 行ごと消してよい。
+
+;;; Code:
+#+end_src
+
+* 判定と引数の書き換え
+接続中（=connect=）のネットワークプロセスが他にあるときだけ、
+JUST-THIS-ONE に =t= を入れる。それ以外のときは引数をそのまま返す。
+
+#+begin_src emacs-lisp
+(defun my-tls-wait-fix--connecting-p (except)
+  "EXCEPT 以外に、接続中のネットワークプロセスがあれば non-nil。"
+  (let ((found nil))
+    (dolist (process (process-list) found)
+      (when (and (not (eq process except))
+                 (eq (process-type process) 'network)
+                 (eq (process-status process) 'connect))
+        (setq found t)))))
+
+(defun my-tls-wait-fix--args (args)
+  "`accept-process-output' の ARGS に、必要なら JUST-THIS-ONE = t を付ける。"
+  (let ((process (nth 0 args)))
+    (if (and (processp process)
+             (not (nth 3 args))
+             (my-tls-wait-fix--connecting-p process))
+        (list process (nth 1 args) (nth 2 args) t)
+      args)))
+#+end_src
+
+* advice
+=:filter-args= で =accept-process-output= の引数を差し替える。
+ネイティブコンパイル済みの呼び出し元にも効く（advice を付けた時点で
+トランポリンが作られる）。
+
+#+begin_src emacs-lisp
+(advice-add 'accept-process-output :filter-args #'my-tls-wait-fix--args)
+
+(provide 'my-tls-wait-fix)
+;;; my-tls-wait-fix.el ends here
+#+end_src

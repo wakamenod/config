@@ -1,0 +1,380 @@
+:PROPERTIES:
+:ID:       034C1EEA-ED23-41FB-80B2-D37CA5D843DA
+:END:
+#+title: Emacs Startup Probe
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/lisp/my-startup-probe.el
+
+起動直後の計測用の一時的なコード。=init.org= の先頭で load する。
+起動から 60 秒間を計測し、結果を =~/.emacs.d/startup-probe.log= に追記する。
+用が済んだら =init.org= の load 行と一緒にこのファイルも消してよい。
+
+* ヘッダと変数
+計測するものの一覧はコメントにある。設定用の変数と内部状態、共通の小さな関数。
+=my-startup-probe--fn-label= は無名関数を印字してラベルにする。
+解釈実行のクロージャは本体ごと巨大に印字されて、それだけで Emacs が固まったことがある。
+そのため =print-level= と =print-length= で浅く切ってから縮めている。
+
+#+begin_src emacs-lisp
+;;; my-startup-probe.el --- 起動直後の計測  -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; init.el の先頭で load して使う一時的な計測用コード。
+;; 起動から `my-startup-probe-duration' 秒間を計測し、結果を
+;; ~/.emacs.d/startup-probe.log に追記する（起動ごとに1レポート）。
+;;
+;; 計測するもの:
+;;   1. 起動のタイムライン。`emacs-init-time' は after-init-time までしか
+;;      見ないので、その後の `emacs-startup-hook' に何秒食われているかを
+;;      フック上の関数ごとに分解して出す。
+;;   2. ジャンク: 0.2秒周期タイマーの遅延量。Emacs がブロックされた分だけ
+;;      発火が遅れるので、これが体感のカクつきそのもの。
+;;   3. ジャンクの正体: 計測窓のあいだ CPU プロファイラを回し、自己時間の
+;;      多い関数を出す。過去のブロックのバックトレースは後から取れないので、
+;;      プロファイラで「その60秒間に何が CPU を食ったか」を押さえる。
+;;   4. GC / native-comp キューの推移、100ms 以上かかったコマンド、
+;;      50ms 以上かかった load。
+;;
+;; 用が済んだら init.el 側の load 行ごと消してよい。
+
+;;; Code:
+
+(require 'profiler nil t)
+
+(defvar my-startup-probe-log-file
+  (expand-file-name "startup-probe.log" user-emacs-directory))
+(defvar my-startup-probe-duration 60 "計測する秒数。")
+(defvar my-startup-probe-tick 0.2 "ジャンク検出タイマーの周期。")
+(defvar my-startup-probe-jank-threshold 0.1 "この秒数以上の遅れを記録する。")
+(defvar my-startup-probe-load-threshold 0.05 "この秒数以上かかった load を記録する。")
+(defvar my-startup-probe-command-threshold 0.1 "この秒数以上かかったコマンドを記録する。")
+(defvar my-startup-probe-hook-threshold 0.01 "この秒数以上かかった startup-hook 要素を記録する。")
+(defvar my-startup-probe-sample-interval 2 "サンプリング周期（秒）。")
+(defvar my-startup-probe-profile t "非 nil なら CPU プロファイラを併用する。")
+
+(defvar my-startup-probe--loads nil)
+(defvar my-startup-probe--depth 0)
+(defvar my-startup-probe--jank nil)
+(defvar my-startup-probe--samples nil)
+(defvar my-startup-probe--commands nil)
+(defvar my-startup-probe--hook-times nil)
+(defvar my-startup-probe--cmd-start nil)
+(defvar my-startup-probe--last-tick nil)
+(defvar my-startup-probe--tick-timer nil)
+(defvar my-startup-probe--sample-timer nil)
+(defvar my-startup-probe--hook-entry-time nil)
+(defvar my-startup-probe--profiling nil)
+
+(defun my-startup-probe--now ()
+  "起動からの経過秒。"
+  (float-time (time-since before-init-time)))
+
+(defun my-startup-probe--fn-label (fn)
+  "FN の表示名。無名関数でも識別できる程度に刻む。"
+  (cond ((symbolp fn) (symbol-name fn))
+        ;; 解釈実行のクロージャは本体と環境ごと印字されて巨大になり、
+        ;; ラベル付けだけで Emacs が固まる。印字を浅く短く切ってから縮める。
+        (t (let ((s (replace-regexp-in-string
+                     "[ \t\n]+" " "
+                     (let ((print-level 3) (print-length 8))
+                       (format "%S" fn)))))
+             (if (> (length s) 70) (concat (substring s 0 70) "…") s)))))
+#+end_src
+
+* load の所要時間
+=load= に =:around= advice を付け、入れ子の深さ付きで所要時間を記録する。
+
+#+begin_src emacs-lisp
+;;; 1. load の所要時間
+
+(defun my-startup-probe--load-advice (orig file &rest args)
+  (let ((start (current-time))
+        (depth my-startup-probe--depth))
+    (unwind-protect
+        (let ((my-startup-probe--depth (1+ depth)))
+          (apply orig file args))
+      (let ((elapsed (float-time (time-since start))))
+        (when (>= elapsed my-startup-probe-load-threshold)
+          (push (list (if (stringp file) (file-name-nondirectory file)
+                        (format "%s" file))
+                      elapsed depth)
+                my-startup-probe--loads))))))
+#+end_src
+
+* emacs-startup-hook の各要素
+=emacs-init-time= に含まれない =emacs-startup-hook= の時間を、フック上の関数ごとに測る。
+
+#+begin_src emacs-lisp
+;;; 2. emacs-startup-hook の各要素
+
+(defun my-startup-probe--instrument-startup-hook ()
+  "`emacs-startup-hook' の残りの要素を、所要時間を測るラッパで包む。
+深さ -100 で登録してあるので、この関数は他のどの要素よりも先に走る。
+リストのコンスセルを `setcar' で書き換えるため、シンボルでも無名関数でも
+包める（`advice-add' は無名関数に効かない）。"
+  (setq my-startup-probe--hook-entry-time (my-startup-probe--now))
+  (let ((cell (cdr (memq #'my-startup-probe--instrument-startup-hook
+                         emacs-startup-hook))))
+    (while cell
+      (let ((fn (car cell)))
+        (when (and fn (not (eq fn t)) (functionp fn))
+          (let ((label (my-startup-probe--fn-label fn)))
+            (setcar cell
+                    (lambda (&rest args)
+                      (let ((start (current-time)))
+                        (unwind-protect (apply fn args)
+                          (push (cons label (float-time (time-since start)))
+                                my-startup-probe--hook-times))))))))
+      (setq cell (cdr cell)))))
+#+end_src
+
+* 遅いコマンド
+=pre-command-hook= と =post-command-hook= で、閾値以上かかったコマンドを記録する。
+
+#+begin_src emacs-lisp
+;;; 3. 遅いコマンド
+
+(defun my-startup-probe--pre-command ()
+  (setq my-startup-probe--cmd-start (current-time)))
+
+(defun my-startup-probe--post-command ()
+  (when my-startup-probe--cmd-start
+    (let ((elapsed (float-time (time-since my-startup-probe--cmd-start))))
+      (when (> elapsed my-startup-probe-command-threshold)
+        (push (list (my-startup-probe--now) elapsed (format "%s" this-command))
+              my-startup-probe--commands)))
+    (setq my-startup-probe--cmd-start nil)))
+#+end_src
+
+* サンプリングとジャンク
+短い周期のタイマーの遅れを、Emacs がブロックされた時間（ジャンク）として記録する。
+GC と native-comp キューも定期的にサンプリングする。
+
+#+begin_src emacs-lisp
+;;; 4. サンプリングとジャンク
+
+(defun my-startup-probe--comp-queue ()
+  (if (boundp 'comp-files-queue) (length comp-files-queue) -1))
+
+(defun my-startup-probe--comp-running ()
+  (cond ((not (boundp 'comp-async-compilations)) -1)
+        ((hash-table-p comp-async-compilations)
+         (hash-table-count comp-async-compilations))
+        (t (length comp-async-compilations))))
+
+(defun my-startup-probe--tick ()
+  (let* ((now (current-time))
+         (late (- (float-time (time-subtract now my-startup-probe--last-tick))
+                  my-startup-probe-tick)))
+    (when (> late my-startup-probe-jank-threshold)
+      (push (cons (float-time (time-subtract now before-init-time)) late)
+            my-startup-probe--jank))
+    (setq my-startup-probe--last-tick now)))
+
+(defun my-startup-probe--sample ()
+  (push (list (my-startup-probe--now) gcs-done gc-elapsed
+              (my-startup-probe--comp-queue)
+              (my-startup-probe--comp-running))
+        my-startup-probe--samples))
+#+end_src
+
+* CPU プロファイルの平坦化
+計測中に回した CPU プロファイラの生ログを、自己時間と包含時間の上位に集計する。
+
+#+begin_src emacs-lisp
+;;; 5. CPU プロファイルの平坦化
+
+(defun my-startup-probe--flat-profile ()
+  "計測窓の CPU プロファイルを (総数 . ((関数 サンプル数 割合) ...)) にする。
+`profiler-profile-log' は Emacs 32 では中身を返さないので、生ログを返す
+`profiler-cpu-log' を使う。失敗したら nil を返し、呼び出し側で
+レポートバッファのテキストにフォールバックする。"
+  (ignore-errors
+    (let ((log (and (fboundp 'profiler-cpu-log) (profiler-cpu-log))))
+      (when (hash-table-p log)
+        (let ((self (make-hash-table :test 'equal))
+              (total 0))
+          (maphash
+           (lambda (backtrace count)
+             (when (and (vectorp backtrace) (> (length backtrace) 0))
+               (let ((leaf (aref backtrace 0)))
+                 (when leaf
+                   (setq total (+ total count))
+                   (puthash leaf (+ count (gethash leaf self 0)) self)))))
+           log)
+          ;; 包含時間: バックトレースのどこかに現れた関数を数える。
+          ;; 最内フレームは let や + のようなプリミティブになりがちで
+          ;; 「どのパッケージか」が分からないため、こちらも併せて出す。
+          (let ((incl (make-hash-table :test 'equal)))
+            (maphash
+             (lambda (backtrace count)
+               (when (vectorp backtrace)
+                 (let ((seen nil))
+                   (dotimes (i (length backtrace))
+                     (let ((fn (aref backtrace i)))
+                       (when (and fn (not (member fn seen)))
+                         (push fn seen)
+                         (puthash fn (+ count (gethash fn incl 0)) incl)))))))
+             log)
+            (when (> total 0)
+              (list total
+                    (my-startup-probe--sorted-histogram self total)
+                    (my-startup-probe--sorted-histogram incl total)))))))))
+
+(defun my-startup-probe--sorted-histogram (table total)
+  "TABLE を (ラベル 件数 割合) の降順リストにする。"
+  (let (acc)
+    (maphash (lambda (fn count)
+               (push (list (my-startup-probe--fn-label fn) count
+                           (* 100.0 (/ (float count) total)))
+                     acc))
+             table)
+    (sort acc (lambda (a b) (> (nth 1 a) (nth 1 b))))))
+
+(defun my-startup-probe--profile-report-text ()
+  "`profiler-report' のバッファ内容をテキストで返す（フォールバック）。"
+  (ignore-errors
+    (save-window-excursion
+      (let ((buf (profiler-report)))
+        (when buf
+          (with-current-buffer buf
+            (prog1 (buffer-substring-no-properties
+                    (point-min) (min (point-max) 4000))
+              (kill-buffer buf))))))))
+#+end_src
+
+* レポート
+計測窓が終わったらタイマーとフックを外し、ログにレポートを追記する。
+
+#+begin_src emacs-lisp
+;;; 6. レポート
+
+(defun my-startup-probe--report ()
+  (when (timerp my-startup-probe--tick-timer)
+    (cancel-timer my-startup-probe--tick-timer))
+  (when (timerp my-startup-probe--sample-timer)
+    (cancel-timer my-startup-probe--sample-timer))
+  (advice-remove 'load #'my-startup-probe--load-advice)
+  (remove-hook 'pre-command-hook #'my-startup-probe--pre-command)
+  (remove-hook 'post-command-hook #'my-startup-probe--post-command)
+  (let* ((flat (and my-startup-probe--profiling (my-startup-probe--flat-profile)))
+         (fallback (and my-startup-probe--profiling (null flat)
+                        (my-startup-probe--profile-report-text)))
+         (samples (nreverse my-startup-probe--samples))
+         (jank    (nreverse my-startup-probe--jank))
+         (cmds    (nreverse my-startup-probe--commands))
+         (hooks   (sort (nreverse my-startup-probe--hook-times)
+                        (lambda (a b) (> (cdr a) (cdr b)))))
+         (loads   (sort my-startup-probe--loads
+                        (lambda (a b) (> (nth 1 a) (nth 1 b)))))
+         (inhibit-message t))
+    (when my-startup-probe--profiling (ignore-errors (profiler-stop)))
+    (with-temp-buffer
+      (insert (format "\n========== %s ==========\n"
+                      (format-time-string "%Y-%m-%d %H:%M:%S")))
+
+      (insert "\n--- 起動タイムライン ---\n")
+      (insert (format "  before-init → after-init      : %7.3f s  (= emacs-init-time)\n"
+                      (float-time (time-subtract after-init-time before-init-time))))
+      (insert (format "  after-init  → startup-hook 開始: %7.3f s\n"
+                      (- (or my-startup-probe--hook-entry-time 0)
+                         (float-time (time-subtract after-init-time before-init-time)))))
+      (insert (format "  startup-hook の実行            : %7.3f s\n"
+                      (apply #'+ (mapcar #'cdr hooks))))
+      (insert (format "  操作可能になるまでの合計        : %7.3f s\n"
+                      (car (car (last samples)))))
+      (insert (format "  gc-cons-threshold              : %d\n" gc-cons-threshold))
+
+      (insert (format "\n--- emacs-startup-hook の内訳（%.0fms 以上） ---\n"
+                      (* 1000 my-startup-probe-hook-threshold)))
+      (if (null hooks)
+          (insert "  計測できず（フックの書き換えに失敗した可能性）\n")
+        (dolist (h hooks)
+          (when (>= (cdr h) my-startup-probe-hook-threshold)
+            (insert (format "  %7.3f s  %s\n" (cdr h) (car h))))))
+
+      (insert (format "\n--- %d秒間のジャンク（タイマーの遅れ = ブロックされた時間） ---\n"
+                      my-startup-probe-duration))
+      (if (null jank)
+          (insert "  なし\n")
+        (insert (format "  件数 %d / 合計 %.3f s / 最大 %.3f s\n"
+                        (length jank)
+                        (apply #'+ (mapcar #'cdr jank))
+                        (apply #'max (mapcar #'cdr jank))))
+        (dolist (j jank)
+          (insert (format "  t=%6.2fs  %.3f s 停止\n" (car j) (cdr j)))))
+
+      (cond
+       (flat
+        (insert (format "\n--- CPU プロファイル: 包含時間（バックトレースに出現）上位25 ---\n"))
+        (insert (format "  総サンプル数 %d\n" (nth 0 flat)))
+        (dolist (e (seq-take (nth 2 flat) 25))
+          (insert (format "  %5.1f%%  %-6d %s\n" (nth 2 e) (nth 1 e) (nth 0 e))))
+        (insert "\n--- CPU プロファイル: 自己時間（最内フレーム）上位15 ---\n")
+        (dolist (e (seq-take (nth 1 flat) 15))
+          (insert (format "  %5.1f%%  %-6d %s\n" (nth 2 e) (nth 1 e) (nth 0 e)))))
+       (fallback
+        (insert "\n--- CPU プロファイル ---\n")
+        (insert "  （平坦化に失敗。profiler-report の生出力）\n")
+        (insert fallback "\n"))
+       (t (insert "\n--- CPU プロファイル ---\n  取得できず\n")))
+
+      (insert (format "\n--- %.0fms 以上かかったコマンド ---\n"
+                      (* 1000 my-startup-probe-command-threshold)))
+      (if (null cmds)
+          (insert "  なし（この間ユーザ操作なし、またはすべて高速）\n")
+        (dolist (c cmds)
+          (insert (format "  t=%6.2fs  %.3f s  %s\n" (nth 0 c) (nth 1 c) (nth 2 c)))))
+
+      (insert "\n--- サンプリング（t / GC回数 / GC累計 / compキュー / comp実行中） ---\n")
+      (dolist (s samples)
+        (insert (format "  t=%6.2fs  gcs=%-5d gc=%6.2fs  queue=%-4d running=%d\n"
+                        (nth 0 s) (nth 1 s) (nth 2 s) (nth 3 s) (nth 4 s))))
+
+      (insert (format "\n--- %.0fms 以上かかった load（上位30件・インデントは入れ子の深さ） ---\n"
+                      (* 1000 my-startup-probe-load-threshold)))
+      (if (null loads)
+          (insert "  なし\n")
+        (dolist (l (seq-take loads 30))
+          (insert (format "  %6.3f s %s%s\n"
+                          (nth 1 l)
+                          (make-string (* 2 (min 6 (nth 2 l))) ?\s)
+                          (nth 0 l)))))
+      (write-region (point-min) (point-max) my-startup-probe-log-file t 'silent)))
+  (message "my-startup-probe: %s に書き出しました" my-startup-probe-log-file))
+#+end_src
+
+* 開始
+=emacs-startup-hook= の最後（深さ 100）から計測を始める。
+
+#+begin_src emacs-lisp
+;;; 7. 開始
+
+(defun my-startup-probe--start ()
+  "`emacs-startup-hook' の最後（深さ100）から計測を開始する。"
+  (when (and my-startup-probe-profile (fboundp 'profiler-start))
+    (when (ignore-errors (profiler-start 'cpu) t)
+      (setq my-startup-probe--profiling t)))
+  (add-hook 'pre-command-hook #'my-startup-probe--pre-command)
+  (add-hook 'post-command-hook #'my-startup-probe--post-command)
+  (setq my-startup-probe--last-tick (current-time))
+  (my-startup-probe--sample)
+  (setq my-startup-probe--tick-timer
+        (run-with-timer my-startup-probe-tick my-startup-probe-tick
+                        #'my-startup-probe--tick))
+  (setq my-startup-probe--sample-timer
+        (run-with-timer my-startup-probe-sample-interval
+                        my-startup-probe-sample-interval
+                        #'my-startup-probe--sample))
+  (run-with-timer my-startup-probe-duration nil #'my-startup-probe--report))
+
+(advice-add 'load :around #'my-startup-probe--load-advice)
+(add-hook 'emacs-startup-hook #'my-startup-probe--instrument-startup-hook -100)
+(add-hook 'emacs-startup-hook #'my-startup-probe--start 100)
+
+(provide 'my-startup-probe)
+
+;;; my-startup-probe.el ends here
+#+end_src

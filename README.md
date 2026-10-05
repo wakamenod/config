@@ -10,8 +10,9 @@ Org-mode による literate configuration（文芸的設定）のリポジトリ
 
 Emacs でいずれかの `.org` を開き、`C-c C-v t`（`org-babel-tangle`）を実行すると
 各ブロックの `:tangle` 先へ展開されます。
-`emacs_init.org` には保存時に自動 tangle する `after-save-hook` が仕込んであるため、
-編集して保存するだけで `~/.emacs.d/init.el` が更新されます。
+`init.org` には、このディレクトリの `.org` を保存時に自動 tangle する
+`after-save-hook` が仕込んであるため、編集して保存するだけで
+`~/.emacs.d/init.el` などの tangle 先が更新されます。
 
 tangle 先はすべて `:tangle` ヘッダに書かれています。取り込む前に必ず確認してください。
 既存の設定ファイルを上書きします。
@@ -22,11 +23,13 @@ tangle 先はすべて `:tangle` ヘッダに書かれています。取り込�
 
 | ファイル | tangle 先 | 内容 |
 | --- | --- | --- |
-| `emacs_init.org` | `~/.emacs.d/init.el` | メインの Emacs 設定。パッケージ管理は [leaf.el](https://github.com/conao3/leaf.el) |
+| `init.org` | `~/.emacs.d/init.el` | メインの Emacs 設定。パッケージ管理は [leaf.el](https://github.com/conao3/leaf.el) |
 | `early-init.org` | `~/.emacs.d/early-init.el` | 起動前の初期化 |
 | `emacs-plus.org` | `~/.config/emacs-plus/…` | emacs-plus (Homebrew) の `build.yml` とローカルパッチ |
+| `tls-wait-fix.org` | `~/.emacs.d/lisp/my-tls-wait-fix.el` | TLS ハンドシェイク中に `accept-process-output` が戻らなくなる不具合の回避策 |
+| `startup-probe.org` | `~/.emacs.d/lisp/my-startup-probe.el` | 起動直後の計測（一時的） |
 
-`emacs_init.org` の第一レベル見出し: Bootstrap / General / Appearance / Platform /
+`init.org` の第一レベル見出し: Bootstrap / General / Appearance / Platform /
 Navigation & Editing / Completion & Search / Development Tools / Programming Languages /
 Org Mode / Applications / Post Process
 
@@ -78,7 +81,7 @@ org 関連ファイルの置き場所だけはマシンごとに違うため、`
 (setq my/org-root "~/Sync/Org/")
 ```
 
-このファイルは `emacs_init.org` の Bootstrap で `:noerror` 付きで読み込まれるので、
+このファイルは `init.org` の Bootstrap で `:noerror` 付きで読み込まれるので、
 無い環境では既定値のまま起動します。
 
 `my/org-root` からは以下が派生します。

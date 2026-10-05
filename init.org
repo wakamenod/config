@@ -18,6 +18,10 @@
 ;; 計測が済んだらこの load 行ごと削除してよい。
 (load "~/.emacs.d/lisp/my-startup-probe.el" :noerror :nomessage)
 
+;; TLS のハンドシェイク中に (accept-process-output PROC ...) が戻らなくなる
+;; Emacs の不具合の回避策。詳しくは tls-wait-fix.org に。どのパッケージより先に入れる。
+(load "~/.emacs.d/lisp/my-tls-wait-fix.el" nil :nomessage)
+
 ;; プローブと計測が二重になるため無効化。必要なら戻す。
 ;; (profiler-start 'cpu)
 ;; (add-hook 'emacs-startup-hook
