@@ -1086,6 +1086,20 @@ deactivating there would turn IME off after each committed word."
     "Return the app frame, or nil when there is none."
     (seq-find #'my/app-frame-p (frame-list)))
 
+  (defun my/app-frame--make-parameters ()
+    "Return the frame parameters to make the app frame with."
+    ;; buffer-predicate: ページを閉じたときなどに Emacs が代わりに
+    ;; 出すバッファを、アプリ用のバッファに限る
+    (append '((my/app-frame . t)
+              (buffer-predicate . my/app-buffer-p))
+            my/app-frame-parameters))
+
+  (defun my/app-frame-ensure ()
+    "Select the app frame, making it first when there is none."
+    (select-frame-set-input-focus
+     (or (my/app-frame)
+         (make-frame (my/app-frame--make-parameters)))))
+
   (defun my/app-frame-select ()
     "Go to the app frame, or back to the previous frame from it.
 When there is no app frame, read a bookmark or URL and open it in a new one."
@@ -1146,7 +1160,7 @@ It is on `kill-buffer-hook', so closing the last tab with x, with its
                  (reusable-frames . t)
                  (frame-predicate . my/app-frame-p)
                  (pop-up-frame-parameters
-                  . ,(cons '(my/app-frame . t) my/app-frame-parameters)))))
+                  . ,(my/app-frame--make-parameters)))))
 
 (leaf *window-management
   :doc "Custom functions and keybindings for window management"
@@ -3208,9 +3222,16 @@ Only image/png is taken, which is what canvas-keys copies."
   :doc "Local wiki+GTD server enghi client"
   :vc (:url "https://github.com/wakamenod/enghi.el" :rev :newest)
   :bind (("C-c n" . enghi-command-map))
+  :preface
+  ;; xwidget は switch-to-buffer で選択中のウィンドウに出すので、
+  ;; display-buffer-alist では振り分けられない。先に App フレームへ移る。
+  (defun my/enghi-browse-in-app-frame (url)
+    "Open URL with `enghi-browse-in-xwidget' in the app frame."
+    (my/app-frame-ensure)
+    (enghi-browse-in-xwidget url))
   :custom ((enghi-server-url . "http://127.0.0.1:7777")
            (enghi-request-timeout . 10)
-           (enghi-browse-function . #'enghi-browse-in-xwidget)
+           (enghi-browse-function . #'my/enghi-browse-in-app-frame)
            (enghi-xwidget-padding . '(32 . 12))))
 
 (leaf enghi-dashboard
