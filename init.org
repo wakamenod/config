@@ -1101,6 +1101,14 @@ When there is no app frame, read a bookmark or URL and open it in a new one."
        (frame (select-frame-set-input-focus frame))
        (t (call-interactively #'canvas-browser-open-bookmark-or-url)))))
 
+  (defun my/app-frame-switch-buffer (&optional all)
+    "Switch buffers, only among app buffers in the app frame.
+With a prefix argument ALL, or outside the app frame, use `consult-buffer'."
+    (interactive "P")
+    (if (or all (not (my/app-frame-p (selected-frame))))
+        (call-interactively #'consult-buffer)
+      (call-interactively #'canvas-browser-switch-tab)))
+
   (defun my/app-frame-close ()
     "Delete the app frame.  Its buffers stay alive."
     (interactive)
@@ -1125,7 +1133,8 @@ It is on `kill-buffer-hook', so closing the last tab with x, with its
                                  (delete-frame frame))))))))
   :bind
   (("C-c w w" . my/app-frame-select)
-   ("C-c w q" . my/app-frame-close))
+   ("C-c w q" . my/app-frame-close)
+   ([remap consult-buffer] . my/app-frame-switch-buffer))
   ;; :bind があると :config は遅延されるので :init で登録する
   :init
   (add-hook 'kill-buffer-hook #'my/app-frame-close-when-empty)
@@ -3180,6 +3189,7 @@ Only image/png is taken, which is what canvas-keys copies."
   :doc "Web browser drawn on a canvas in an Emacs buffer (fork with macOS support)"
   :commands (canvas-browser
              canvas-browser-browse-url
+             canvas-browser-switch-tab
              canvas-browser-open-bookmark-or-url
              canvas-browser-install-ublock
              canvas-browser-restart-chromium)
