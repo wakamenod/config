@@ -1311,23 +1311,35 @@ x, with its × or with `kill-buffer' takes the frame away too."
   (tab-bar-tab-hints            . t)
   (tab-bar-select-tab-modifiers . '(super)))
 
+;; フォーカスのないフレームを薄くして、今どのフレームにいるか（App フレームか
+;; メインか）を見分けやすくする。posframe などの子フレームはフォーカスを
+;; 持たず常に薄くなってしまうので除く。
 (leaf *window-transparency
   :doc "Set window transparency level"
   :if (window-system)
-  :hook (after-init-hook . toggle-window-transparency)
+  :hook
+  (after-init-hook . my/frame-set-alpha)
+  (after-make-frame-functions . my/frame-set-alpha)
   :custom
   ;; (window-transparency . 70)
   (window-transparency . 82)
   :preface
+  (defvar my/frame-alpha '(100 . 85)
+    "The `alpha' of a frame: opacity with focus and without it.")
+
+  (defun my/frame-set-alpha (&optional frame)
+    "Give FRAME `my/frame-alpha', unless it is a child frame."
+    (unless (frame-parameter frame 'parent-frame)
+      (set-frame-parameter frame 'alpha my/frame-alpha)))
+
   (defun toggle-window-transparency ()
-    "Cycle the frame transparency from default to transparent."
+    "Toggle the selected frame between `window-transparency' and `my/frame-alpha'."
     (interactive)
-    (let ((transparency window-transparency)
-          (opacity 100))
-      (if (and (not (eq (frame-parameter nil 'alpha) nil))
-               (< (frame-parameter nil 'alpha) opacity))
-          (set-frame-parameter nil 'alpha opacity)
-        (set-frame-parameter nil 'alpha transparency)))))
+    (let ((alpha (frame-parameter nil 'alpha)))
+      (if (< (if (consp alpha) (car alpha) (or alpha 100)) 100)
+          (my/frame-set-alpha)
+        (set-frame-parameter nil 'alpha
+                             (cons window-transparency (cdr my/frame-alpha)))))))
 
 #+end_src
 * Completion & Search
