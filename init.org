@@ -1057,6 +1057,84 @@ deactivating there would turn IME off after each committed word."
         (window-height . 0.5)
         (side . bottom)))))
 
+;; アプリ用のバッファは専用フレームに出す。ウィンドウとして置くと、タブの
+;; 切り替えや ecc のレイアウト（C-c c V など）でたびたび消されるため。
+(leaf *app-frame
+  :doc "Show application buffers such as canvas-browser in a frame of their own"
+  :preface
+  (defvar my/app-frame-modes '(canvas-browser-mode)
+    "Major modes whose buffers are shown in the app frame.")
+
+  (defvar my/app-frame-parameters '((name . "App") (width . 120) (height . 50))
+    "Frame parameters of the app frame when it is made.")
+
+  (defun my/app-buffer-p (buffer-or-name &optional _action)
+    "Return non-nil when BUFFER-OR-NAME should be shown in the app frame."
+    (when-let* ((buffer (get-buffer buffer-or-name)))
+      (with-current-buffer buffer
+        (derived-mode-p my/app-frame-modes))))
+
+  (defun my/app-frame-p (frame)
+    "Return non-nil when FRAME is the app frame."
+    (frame-parameter frame 'my/app-frame))
+
+  (defun my/app-frame ()
+    "Return the app frame, or nil when there is none."
+    (seq-find #'my/app-frame-p (frame-list)))
+
+  (defun my/app-frame-select ()
+    "Go to the app frame, or back to the previous frame from it.
+When there is no app frame, read a bookmark or URL and open it in a new one."
+    (interactive)
+    (let ((frame (my/app-frame)))
+      (cond
+       ((eq frame (selected-frame))
+        (when-let* ((other (seq-find (lambda (f)
+                                       (and (not (my/app-frame-p f))
+                                            (frame-visible-p f)))
+                                     (frame-list-z-order))))
+          (select-frame-set-input-focus other)))
+       (frame (select-frame-set-input-focus frame))
+       (t (call-interactively #'canvas-browser-open-bookmark-or-url)))))
+
+  (defun my/app-frame-close ()
+    "Delete the app frame.  Its buffers stay alive."
+    (interactive)
+    (when-let* ((frame (my/app-frame)))
+      (delete-frame frame)))
+
+  (defun my/app-frame-close-when-empty ()
+    "Delete the app frame once the last app buffer is killed.
+It is on `kill-buffer-hook', so closing the last tab with x, with its
+× or with `kill-buffer' takes the frame away too."
+    (let ((dying (current-buffer)))
+      (when (and (my/app-buffer-p dying)
+                 (not (seq-some (lambda (buffer)
+                                  (and (not (eq buffer dying))
+                                       (not (string-prefix-p " " (buffer-name buffer)))
+                                       (my/app-buffer-p buffer)))
+                                (buffer-list))))
+        ;; The buffer is still being killed; let that finish first.
+        (run-at-time 0 nil (lambda ()
+                             (when-let* ((frame (my/app-frame)))
+                               (when (cdr (visible-frame-list))
+                                 (delete-frame frame))))))))
+  :bind
+  (("C-c w w" . my/app-frame-select)
+   ("C-c w q" . my/app-frame-close))
+  ;; :bind があると :config は遅延されるので :init で登録する
+  :init
+  (add-hook 'kill-buffer-hook #'my/app-frame-close-when-empty)
+  (add-to-list 'display-buffer-alist
+               `(my/app-buffer-p
+                 (display-buffer-reuse-window
+                  display-buffer-use-some-frame
+                  display-buffer-pop-up-frame)
+                 (reusable-frames . t)
+                 (frame-predicate . my/app-frame-p)
+                 (pop-up-frame-parameters
+                  . ,(cons '(my/app-frame . t) my/app-frame-parameters)))))
+
 (leaf *window-management
   :doc "Custom functions and keybindings for window management"
   :global-minor-mode winner-mode
