@@ -3045,6 +3045,67 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   :hook
   (xwidget-webkit-mode-hook . my-xwidget-force-arrow-cursor))
 #+end_src
+** canvas-browser
+#+begin_src emacs-lisp
+;; canvas-keys と canvas-diagram はどのアーカイブにもないので、canvas-browser より先に入れる。
+;; package-vc-install-from-checkout で登録済みなら :vc は何もしない。
+(leaf canvas-packages
+  :doc "Install the canvas packages with package-vc"
+  :preface
+  (require 'package-vc)
+  ;; package-vc は、ここに名前のあるパッケージでしか :make や :shell-command を実行しない
+  (dolist (pkg '(canvas-diagram canvas-browser))
+    (add-to-list 'package-vc-allow-build-commands pkg))
+  :vc
+  (canvas-keys :url "https://github.com/Daskeladden/canvas-keys")
+  ;; Makefile は emacs-module.hを/usr/local/include でしか探さないのでHomebrew の場所を足す
+  (canvas-diagram
+   :url "https://github.com/Daskeladden/canvas-diagram"
+   :shell-command "make CFLAGS='-O2 -Wall -Wextra -std=gnu11 -fPIC -I/opt/homebrew/include'")
+  (canvas-browser :url "https://github.com/wakamenod/canvas-browser" :make "display"))
+
+(leaf *canvas-picture-clipboard
+  :doc "Put the pictures canvas-keys copies (M-w in a page) on the macOS clipboard"
+  ;; canvas-keys は画像のコピーを kill-ring-images-copy に任せるが、
+  ;; kill-ring-images は X でしかほかのアプリに画像を渡せない。
+  ;; macOS では同じ名前の関数を置いて、osascript でクリップボードに入れる。
+  :when (eq system-type 'darwin)
+  :preface
+  (unless (or (fboundp 'kill-ring-images-copy) (locate-library "kill-ring-images"))
+    (defun kill-ring-images-copy (type bytes)
+      "Put BYTES, an image of TYPE, on the macOS clipboard.
+Only image/png is taken, which is what canvas-keys copies."
+      (unless (eq type 'image/png)
+        (user-error "Only a PNG can go on the clipboard here, not %s" type))
+      (let ((file (make-temp-file "canvas-picture-" nil ".png")))
+        (unwind-protect
+            (progn
+              (let ((coding-system-for-write 'binary))
+                (write-region bytes nil file nil 'silent))
+              (unless (zerop (call-process
+                              "osascript" nil nil nil "-e"
+                              (format "set the clipboard to (read (POSIX file %S) as «class PNGf»)"
+                                      file)))
+                (error "osascript could not put the picture on the clipboard")))
+          (delete-file file))))))
+
+(leaf canvas-browser
+  :doc "Web browser drawn on a canvas in an Emacs buffer (fork with macOS support)"
+  :commands (canvas-browser
+             canvas-browser-browse-url
+             canvas-browser-open-bookmark-or-url
+             canvas-browser-install-ublock
+             canvas-browser-restart-chromium)
+  :custom
+  ;; macOS では既定値だが明示しておく。
+  ;; 仮想ディスプレイが作れないときは offscreen（画面の右下に 40px 残る）になる
+  (canvas-browser-window-strategy . 'virtual-display)
+  (canvas-browser-chromium
+   . '("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"))
+  (canvas-browser-profile-directory . "~/.cache/canvas-browser/profile-brave")
+  (canvas-browser-search-url . "https://www.google.com/search?q=%s")
+  (browse-url-browser-function . #'canvas-browser-browse-url))
+#+end_src
 ** enghi
 #+begin_src emacs-lisp
 (leaf enghi

@@ -13,6 +13,9 @@ emacs-plus (Homebrew) のビルド設定。
 ローカルパッチも =sha256= が必須で、ハッシュが一致しないとビルドが止まる。
 パッチの中身を変えたら =shasum -a 256= で計算し直すこと。
 
+revision は固定していない。canvas 画像（Emacs 32 の master に 2026-08-16 に入った）を使うため、
+以前の =e1a4bb7a= （2026-07-08）への固定は外した。固定し直すなら、それより新しいコミットにする。
+
 #+begin_src yaml :tangle ~/.config/emacs-plus/build.yml :mkdirp yes
 # Use a community icon (see community/registry.json for available options)
 icon: liquid-glass

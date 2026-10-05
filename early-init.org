@@ -52,6 +52,10 @@
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6)
 
+;; .el のほうが新しければ、古い .elc ではなく .el を読む
+;; （手元の clone を直したパッケージで、古い .elc を読まないように）
+(setq load-prefer-newer t)
+
 ;; Suppress libgccjit warnings
 ;; Reference:　https://pxaka.tokyo/blog/2024/0331-emacs-pkg-with-native-comp/
 (setenv "LIBRARY_PATH"
