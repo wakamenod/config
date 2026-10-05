@@ -3167,6 +3167,11 @@ Only image/png is taken, which is what canvas-keys copies."
                 (error "osascript could not put the picture on the clipboard")))
           (delete-file file))))))
 
+(defconst my/canvas-browser-chromium
+  (list "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+        (expand-file-name "~/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"))
+  "Where Brave may be, in the order to look.")
+
 (leaf canvas-browser
   :doc "Web browser drawn on a canvas in an Emacs buffer (fork with macOS support)"
   :commands (canvas-browser
@@ -3178,8 +3183,7 @@ Only image/png is taken, which is what canvas-keys copies."
   ;; macOS では既定値だが明示しておく。
   ;; 仮想ディスプレイが作れないときは offscreen（画面の右下に 40px 残る）になる
   (canvas-browser-window-strategy . 'virtual-display)
-  (canvas-browser-chromium
-   . '("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"))
+  (canvas-browser-chromium . my/canvas-browser-chromium)
   (canvas-browser-profile-directory . "~/.cache/canvas-browser/profile-brave")
   (canvas-browser-search-url . "https://www.google.com/search?q=%s")
   (browse-url-browser-function . #'canvas-browser-browse-url))
