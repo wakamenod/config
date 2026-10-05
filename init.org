@@ -59,6 +59,10 @@ Org 関連ファイルの置き場所はマシンごとに違うので、=my/org
 ;; マシン固有の設定。存在しなければ既定値のまま進む。
 (load (locate-user-emacs-file "local-init.el") :noerror :nomessage)
 
+;; Customize の書き込み先を init.el から分ける。
+(setq custom-file (locate-user-emacs-file "custom.el"))
+(load custom-file :noerror :nomessage)
+
 ;; 以下は `my/org-root' からの派生。leaf の :custom は値に関数呼び出しを
 ;; そのまま書けない（平のリストとして分解されてしまう）ため、
 ;; あらかじめ変数へ展開しておく。
