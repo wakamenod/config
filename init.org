@@ -925,6 +925,13 @@ deactivating there would turn IME off after each committed word."
       (select-window
        (cdr (ring-ref avy-ring 0))))
     t)
+  (defun avy-action-define (pt)
+    (save-excursion
+      (goto-char pt)
+      (dictionary-lookup-definition))
+    (select-window
+     (cdr (ring-ref avy-ring 0)))
+    t)
 
 (setf (alist-get ?y avy-dispatch-alist) 'avy-action-yank
       (alist-get ?w avy-dispatch-alist) 'avy-action-copy
@@ -936,6 +943,7 @@ deactivating there would turn IME off after each committed word."
       (alist-get ?T avy-dispatch-alist) 'avy-action-teleport-whole-line
       (alist-get ?t avy-dispatch-alist) 'avy-action-teleport
       (alist-get ?\; avy-dispatch-alist)'avy-action-flyspell
+      (alist-get ?= avy-dispatch-alist) 'avy-action-define
       (alist-get ?H avy-dispatch-alist) 'avy-action-helpful
       (alist-get ?. avy-dispatch-alist) 'avy-action-embark)
   (global-set-key (kbd "M-j") 'avy-migemo-goto-char-timer)
