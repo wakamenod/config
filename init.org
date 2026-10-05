@@ -216,6 +216,13 @@ Org 関連ファイルの置き場所はマシンごとに違うので、=my/org
   :url "https://github.com/akicho8/string-inflection"
   :bind ("s-u" . string-inflection-all-cycle))
 
+(leaf server
+  :doc "Let emacsclient reach this Emacs, to look into it from outside when it hangs"
+  :require t
+  :config
+  (unless (server-running-p)
+    (server-start)))
+
 
 #+end_src
 
