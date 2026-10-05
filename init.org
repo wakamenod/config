@@ -1100,6 +1100,36 @@ deactivating there would turn IME off after each committed word."
      (or (my/app-frame)
          (make-frame (my/app-frame--make-parameters)))))
 
+  (defun my/app-frame--enghi-window (&optional frame)
+    "Return the window of FRAME kept for enghi, or nil."
+    (window-with-parameter 'my/enghi-window t frame))
+
+  (defun my/app-frame-enghi-window ()
+    "Select the enghi window of the app frame, making it when there is none.
+It is the lower half of the frame, below the app buffers."
+    (my/app-frame-ensure)
+    (let ((window
+           (or (my/app-frame--enghi-window)
+               (let ((top (frame-first-window)))
+                 (if (my/app-buffer-p (window-buffer top))
+                     (split-window top nil 'below)
+                   top)))))
+      (set-window-parameter window 'my/enghi-window t)
+      ;; 弱い dedicated にして、ページを開くときに使われないようにする。
+      ;; t にすると xwidget の switch-to-buffer が失敗する。
+      (set-window-dedicated-p window 'enghi)
+      (select-window window)))
+
+  (defun my/display-buffer-in-app-frame (buffer alist)
+    "Show BUFFER in the app frame, above the enghi window if there is one."
+    (when-let* ((frame (my/app-frame)))
+      (let ((enghi (my/app-frame--enghi-window frame)))
+        (if-let* ((window (seq-find (lambda (window) (not (eq window enghi)))
+                                    (window-list frame 'no-minibuf))))
+            (window--display-buffer buffer window 'reuse alist)
+          (window--display-buffer buffer (split-window enghi nil 'above)
+                                  'window alist)))))
+
   (defun my/app-frame-select ()
     "Go to the app frame, or back to the previous frame from it.
 When there is no app frame, read a bookmark or URL and open it in a new one."
@@ -1129,22 +1159,43 @@ With a prefix argument ALL, or outside the app frame, use `consult-buffer'."
     (when-let* ((frame (my/app-frame)))
       (delete-frame frame)))
 
+  (defun my/app-frame--drop (which)
+    "Take WHICH off the app frame: `enghi' for its window, `pages' for the rest.
+The frame goes when nothing else is left in it."
+    (when-let* ((frame (my/app-frame)))
+      (let* ((all (window-list frame 'no-minibuf))
+             (enghi (my/app-frame--enghi-window frame))
+             (windows (if (eq which 'enghi)
+                          (and enghi (list enghi))
+                        (remq enghi all))))
+        (cond
+         ((null windows))
+         ((< (length windows) (length all))
+          (mapc #'delete-window windows))
+         ((cdr (visible-frame-list))
+          (delete-frame frame))))))
+
   (defun my/app-frame-close-when-empty ()
-    "Delete the app frame once the last app buffer is killed.
-It is on `kill-buffer-hook', so closing the last tab with x, with its
-× or with `kill-buffer' takes the frame away too."
-    (let ((dying (current-buffer)))
-      (when (and (my/app-buffer-p dying)
-                 (not (seq-some (lambda (buffer)
-                                  (and (not (eq buffer dying))
-                                       (not (string-prefix-p " " (buffer-name buffer)))
-                                       (my/app-buffer-p buffer)))
-                                (buffer-list))))
+    "Take a window off the app frame once nothing is left to show in it.
+When the enghi page is killed its window goes, and when the last app
+buffer is killed the windows of the pages go.  The frame goes with the
+last of them.  It is on `kill-buffer-hook', so closing the last tab with
+x, with its × or with `kill-buffer' takes the frame away too."
+    (let* ((dying (current-buffer))
+           (enghi (my/app-frame--enghi-window (my/app-frame)))
+           (which
+            (cond
+             ((and enghi (eq dying (window-buffer enghi))) 'enghi)
+             ((and (my/app-buffer-p dying)
+                   (not (seq-some (lambda (buffer)
+                                    (and (not (eq buffer dying))
+                                         (not (string-prefix-p " " (buffer-name buffer)))
+                                         (my/app-buffer-p buffer)))
+                                  (buffer-list))))
+              'pages))))
+      (when which
         ;; The buffer is still being killed; let that finish first.
-        (run-at-time 0 nil (lambda ()
-                             (when-let* ((frame (my/app-frame)))
-                               (when (cdr (visible-frame-list))
-                                 (delete-frame frame))))))))
+        (run-at-time 0 nil #'my/app-frame--drop which))))
   :bind
   (("C-c w w" . my/app-frame-select)
    ("C-c w q" . my/app-frame-close)
@@ -1155,10 +1206,9 @@ It is on `kill-buffer-hook', so closing the last tab with x, with its
   (add-to-list 'display-buffer-alist
                `(my/app-buffer-p
                  (display-buffer-reuse-window
-                  display-buffer-use-some-frame
+                  my/display-buffer-in-app-frame
                   display-buffer-pop-up-frame)
                  (reusable-frames . t)
-                 (frame-predicate . my/app-frame-p)
                  (pop-up-frame-parameters
                   . ,(my/app-frame--make-parameters)))))
 
@@ -3224,10 +3274,11 @@ Only image/png is taken, which is what canvas-keys copies."
   :bind (("C-c n" . enghi-command-map))
   :preface
   ;; xwidget は switch-to-buffer で選択中のウィンドウに出すので、
-  ;; display-buffer-alist では振り分けられない。先に App フレームへ移る。
+  ;; display-buffer-alist では振り分けられない。先に App フレームの
+  ;; 下半分のウィンドウへ移る。
   (defun my/enghi-browse-in-app-frame (url)
-    "Open URL with `enghi-browse-in-xwidget' in the app frame."
-    (my/app-frame-ensure)
+    "Open URL with `enghi-browse-in-xwidget' in the lower half of the app frame."
+    (my/app-frame-enghi-window)
     (enghi-browse-in-xwidget url))
   :custom ((enghi-server-url . "http://127.0.0.1:7777")
            (enghi-request-timeout . 10)
