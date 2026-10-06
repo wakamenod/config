@@ -3295,7 +3295,12 @@ Only image/png is taken, which is what canvas-keys copies."
   :custom ((enghi-server-url . "http://127.0.0.1:7777")
            (enghi-request-timeout . 10)
            (enghi-browse-function . #'my/enghi-browse-in-app-frame)
-           (enghi-xwidget-padding . '(32 . 12))))
+           (enghi-xwidget-padding . '(32 . 12))
+           ;; C-c n p のリストも vertico-posframe と同じく中央の posframe に出す
+           (enghi-triage-display . 'posframe)
+           (enghi-posframe-border-width . 5))
+  :custom-face
+  (enghi-posframe-border . '((t (:background "#323445")))))
 
 (leaf enghi-dashboard
   :doc "Put enghi's items(Inbox, today's items, due items) in dashboard"
