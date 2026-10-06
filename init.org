@@ -3298,7 +3298,8 @@ Only image/png is taken, which is what canvas-keys copies."
            (enghi-xwidget-padding . '(32 . 12))
            (enghi-triage-display . 'posframe)
            (enghi-posframe-border-width . 5)
-           (enghi-task-list-title-width . 64))
+           (enghi-task-list-title-width . 64)
+           (enghi-task-list-side-width . 28))
   :custom-face
   (enghi-posframe-border . '((t (:background "#323445")))))
 
