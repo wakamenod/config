@@ -3256,10 +3256,14 @@ Only image/png is taken, which is what canvas-keys copies."
                 (error "osascript could not put the picture on the clipboard")))
           (delete-file file))))))
 
+;; canvas-browser にはふだん使いの Brave とは別のアプリ（Brave Beta）を使わせる。
+;; 同じアプリだと、アップデートで両方が落ちたり、Dock や Cmd-Shift-T が
+;; 見えない仮想ディスプレイ側の Brave に届いたりする（2026-10-07 にタブを見失った）。
+;; ふだん使いの Brave には戻さない。戻すと同じことが起きる。
 (defconst my/canvas-browser-chromium
-  (list "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
-        (expand-file-name "~/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"))
-  "Where Brave may be, in the order to look.")
+  (list "/Applications/Brave Browser Beta.app/Contents/MacOS/Brave Browser Beta"
+        (expand-file-name "~/Applications/Brave Browser Beta.app/Contents/MacOS/Brave Browser Beta"))
+  "Where Brave Beta may be, in the order to look.")
 
 (leaf canvas-browser
   :doc "Web browser drawn on a canvas in an Emacs buffer (fork with macOS support)"
@@ -3274,7 +3278,9 @@ Only image/png is taken, which is what canvas-keys copies."
   ;; 仮想ディスプレイが作れないときは offscreen（画面の右下に 40px 残る）になる
   (canvas-browser-window-strategy . 'virtual-display)
   (canvas-browser-chromium . my/canvas-browser-chromium)
-  (canvas-browser-profile-directory . "~/.cache/canvas-browser/profile-brave")
+  ;; profile-brave はふだん使いの Brave で使っていたもの。Beta は新しい形式に
+  ;; 書き換えるので、コピーした profile-brave-beta を使う
+  (canvas-browser-profile-directory . "~/.cache/canvas-browser/profile-brave-beta")
   (canvas-browser-search-url . "https://www.google.com/search?q=%s")
   (browse-url-browser-function . #'canvas-browser-browse-url))
 #+end_src
