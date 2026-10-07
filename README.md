@@ -54,6 +54,7 @@ Org Mode / Applications / Post Process
 | `aquaskk.org` | `~/Library/Application Support/AquaSKK/…` |
 | `xbar.org` | `~/Library/Application Support/xbar/…` |
 | `autumn.org` | `~/.autumn.js` |
+| `brave-beta-update.org` | `~/.local/bin/brave-beta-update`、`~/Library/LaunchAgents/…` |
 
 ### Linux（アーカイブ）
 

@@ -1,0 +1,125 @@
+:PROPERTIES:
+:ID:       1BE7884E-A345-4C4F-A598-CF70843995D5
+:END:
+#+title: Brave Beta Update
+#+category: Configuration
+#+filetags: Configuration
+
+canvas-browser（Emacs の中のブラウザ）が使う Brave Beta を、週に 1 回 Homebrew で更新する。
+
+canvas-browser には、ふだん使いの Brave とは別のアプリ（Brave Beta）を使わせている
+（=init.org= の canvas-browser の節）。同じアプリだと、Brave のアップデートで両方が落ちたり、
+Dock や Cmd-Shift-T が見えない仮想ディスプレイ側の Brave に届いたりするため。
+
+Brave Beta は、自分のウィンドウから再起動したときにしか更新されない。canvas-browser の
+Brave Beta は誰にも見えないウィンドウで動いているので、自分では更新できない。そのため、
+launchd からこのスクリプトを流して更新する。
+
+* 入れ方
+このファイルを tangle したあと、launchd に登録する。
+
+#+begin_src sh :tangle no
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.wakamenod.brave-beta-update.plist
+#+end_src
+
+plist を変えたときは、いったん外してから登録し直す。
+
+#+begin_src sh :tangle no
+launchctl bootout gui/$(id -u)/com.wakamenod.brave-beta-update
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.wakamenod.brave-beta-update.plist
+#+end_src
+
+=BRAVE_BETA_UPDATE_DRY_RUN=1 ~/.local/bin/brave-beta-update= で、何をするかだけを表示する。
+launchd から流したときのログは =~/Library/Logs/brave-beta-update.log= に残る。
+
+* スクリプト
+Homebrew は、動いている最中のアプリでもそのまま入れ替える（cask に =uninstall quit:= がない）。
+動いている Brave は、入れ替わったあとページの Helper を起動できなくなる。そこで、新しい版が
+あるときは、先に Emacs 側の Brave Beta を =emacsclient= から止める。止めても canvas-browser は
+自分では起動し直さず、次にページを開いたときに新しい版を起動する。
+
+手で画面に開いた Brave Beta（拡張機能を入れるときなど）は =--remote-debugging-port= を
+持たないので、それで見分けて、その週は飛ばす。
+
+#+begin_src sh :tangle ~/.local/bin/brave-beta-update :tangle-mode o755
+#!/bin/bash
+# canvas-browser の Brave Beta を Homebrew で更新する。
+# 原本は config リポジトリの brave-beta-update.org。
+
+set -u
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+cask=brave-browser@beta
+binary="Brave Browser Beta.app/Contents/MacOS/Brave Browser Beta"
+socket="$(getconf DARWIN_USER_TEMP_DIR)emacs$(id -u)/server"
+dry="${BRAVE_BETA_UPDATE_DRY_RUN:-}"
+
+# launchd から流したときは、ログに書く。端末から流したときは画面に出す。
+[ -t 1 ] || exec >>"$HOME/Library/Logs/brave-beta-update.log" 2>&1
+
+say() { echo "$(date '+%F %T') $*"; }
+run() { if [ -n "$dry" ]; then say "would run: $*"; else "$@"; fi; }
+
+# Brave Beta の本体のプロセスのコマンドライン。Helper は除く。
+browsers() { ps -Ao command | grep -F "$binary" | grep -v -e '--type=' -e grep; }
+
+brew update --quiet >/dev/null 2>&1
+if [ -z "$(brew outdated --cask --greedy --quiet "$cask" 2>/dev/null)" ] && [ -z "$dry" ]; then
+  say "Brave Beta is up to date"
+  exit 0
+fi
+
+if browsers | grep -qv -e '--remote-debugging-port'; then
+  say "Brave Beta is open on the screen; the update waits for next week"
+  exit 0
+fi
+
+if browsers | grep -q -e '--remote-debugging-port'; then
+  say "stopping the Brave Beta of Emacs"
+  run emacsclient -s "$socket" --eval '(canvas-browser-cdp-stop)'
+  for _ in $(seq 30); do
+    browsers | grep -q . || break
+    [ -n "$dry" ] && break
+    sleep 1
+  done
+  if [ -z "$dry" ] && browsers | grep -q .; then
+    say "Brave Beta did not stop; the update waits for next week"
+    exit 1
+  fi
+fi
+
+say "updating Brave Beta"
+run brew upgrade --cask --greedy "$cask"
+say "done"
+#+end_src
+
+* launchd
+日曜の 4:00 に流す。その時刻に Mac が眠っていれば、起きたときに流れる。
+
+plist にはホームの絶対パスを書かないため、=$HOME= を展開できる bash からスクリプトを起動する。
+ログもスクリプトの側で書く。
+
+#+begin_src xml :tangle ~/Library/LaunchAgents/com.wakamenod.brave-beta-update.plist
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.wakamenod.brave-beta-update</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>exec "$HOME/.local/bin/brave-beta-update"</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>0</integer>
+    <key>Hour</key>
+    <integer>4</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+</dict>
+</plist>
+#+end_src
