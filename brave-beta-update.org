@@ -41,6 +41,10 @@ Homebrew は、動いている最中のアプリでもそのまま入れ替え�
 手で画面に開いた Brave Beta（拡張機能を入れるときなど）は =--remote-debugging-port= を
 持たないので、それで見分けて、その週は飛ばす。
 
+Brave Beta は =/Applications= でも =~/Applications= でもよい。プロセスはパスの後ろの部分で
+見分けるし、Homebrew は入れたときの置き場所（=--appdir=）を覚えていて、更新もそこにする。
+ただし Homebrew で入れたものでないと更新できないので、そのときはログに書いて止まる。
+
 #+begin_src sh :tangle ~/.local/bin/brave-beta-update :tangle-mode o755
 #!/bin/bash
 # canvas-browser の Brave Beta を Homebrew で更新する。
@@ -61,6 +65,13 @@ run() { if [ -n "$dry" ]; then say "would run: $*"; else "$@"; fi; }
 
 # Brave Beta の本体のプロセスのコマンドライン。Helper は除く。
 browsers() { ps -Ao command | grep -F "$binary" | grep -v -e '--type=' -e grep; }
+
+# Homebrew 以外で入れた Brave Beta は、Homebrew に聞いても新しい版がないと答えるので、
+# 「最新」と取り違えないよう、ここで止める。
+if ! brew list --cask "$cask" >/dev/null 2>&1; then
+  say "Brave Beta is not installed with Homebrew; install it with: brew install --cask $cask"
+  exit 1
+fi
 
 brew update --quiet >/dev/null 2>&1
 if [ -z "$(brew outdated --cask --greedy --quiet "$cask" 2>/dev/null)" ] && [ -z "$dry" ]; then
