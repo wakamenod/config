@@ -3225,10 +3225,12 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
     (add-to-list 'package-vc-allow-build-commands pkg))
   :vc
   (canvas-keys :url "https://github.com/Daskeladden/canvas-keys")
-  ;; Makefile は emacs-module.hを/usr/local/include でしか探さないのでHomebrew の場所を足す
+  ;; Makefile は emacs-module.h を Emacs の実体の隣に探すが、Emacs.app では 3 階層上にあって
+  ;; 見つからないので EMACS_INCLUDE で教える。canvas-cairo.c の #include <emacs-module.h> は
+  ;; それとは別に探すので、-I にも Homebrew の場所を足す（2026-10-08、b8b971c の Makefile から）
   (canvas-diagram
    :url "https://github.com/Daskeladden/canvas-diagram"
-   :shell-command "make CFLAGS='-O2 -Wall -Wextra -std=gnu11 -fPIC -I/opt/homebrew/include'")
+   :shell-command "make EMACS_INCLUDE=/opt/homebrew/include CFLAGS='-O2 -Wall -Wextra -std=gnu11 -fPIC -I/opt/homebrew/include'")
   (canvas-browser :url "https://github.com/wakamenod/canvas-browser" :make "display"))
 
 (leaf *canvas-picture-clipboard
