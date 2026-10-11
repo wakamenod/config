@@ -2027,6 +2027,10 @@ x, with its × or with `kill-buffer' takes the frame away too."
          ("C-c d d" . typewhisper-dictate-and-fix)
          ("C-c d c" . typewhisper-corrections)
          ("C-c d t" . typewhisper-terms))
+  :custom
+  ;; Use the local dev build, which pastes with C-y instead of Cmd+V (M-v here).
+  (typewhisper-api-discovery-file
+   . "~/Library/Application Support/TypeWhisper-Dev/api-discovery.json")
   :global-minor-mode typewhisper-mode)
 #+end_src
 
