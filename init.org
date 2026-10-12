@@ -167,6 +167,10 @@ Org 関連ファイルの置き場所はマシンごとに違うので、=my/org
   :doc "Save place of cursor"
   :global-minor-mode save-place-mode)
 
+(leaf *repeat
+  :doc "Repeat the last key of a command alone"
+  :global-minor-mode repeat-mode)
+
 (leaf *history
   :doc "save history of minibuffer"
   :hook (after-init-hook . savehist-mode)
