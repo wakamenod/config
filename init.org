@@ -2148,6 +2148,26 @@ Like normal Emacs `C-k'.  Kill to end of line and put content in kill-ring."
                       (goto-char (point-max))) ; 位置移動のみ行い、プロセスへのキー送信はスキップ
                   ;; 他のバックエンドは通常通り処理
                   (funcall orig-fun buffer)))))
+
+;; 表示中の posframe を C-M-p で上・中央・下と順に動かす。
+;; 位置は覚えておかれ、次に開いたときもその位置に出る。
+;; popterm に位置を変えるコマンドがないので、内部関数 popterm--posframe-show で出し直している
+(with-eval-after-load 'popterm
+  (defun my/popterm-rotate-position ()
+    "Move the popterm posframe through top, center and bottom."
+    (interactive)
+    (let* ((positions '(posframe-poshandler-frame-top-center
+                        posframe-poshandler-frame-center
+                        posframe-poshandler-frame-bottom-center))
+           (current (or popterm-posframe-poshandler
+                        #'posframe-poshandler-frame-center))
+           (next (or (cadr (memq current positions)) (car positions))))
+      (setq popterm-posframe-poshandler next)
+      (when (and (frame-live-p popterm--frame)
+                 (frame-visible-p popterm--frame)
+                 (buffer-live-p popterm--frame-buffer))
+        (popterm--posframe-show popterm--frame-buffer))))
+  (define-key popterm-term-map (kbd "C-M-p") #'my/popterm-rotate-position))
 #+end_src
 
 
