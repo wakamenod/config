@@ -1147,13 +1147,19 @@ When there is no app frame, read a bookmark or URL and open it in a new one."
                                      (frame-list-z-order))))
           (select-frame-set-input-focus other)))
        (frame (select-frame-set-input-focus frame))
-       (t (call-interactively #'canvas-browser-open-bookmark-or-url)))))
+       ;; canvas-browser を使っていないときは開くものがない
+       ((fboundp 'canvas-browser-open-bookmark-or-url)
+        (call-interactively #'canvas-browser-open-bookmark-or-url))
+       (t (user-error "No app frame")))))
 
   (defun my/app-frame-switch-buffer (&optional all)
     "Switch buffers, only among app buffers in the app frame.
 With a prefix argument ALL, or outside the app frame, use `consult-buffer'."
     (interactive "P")
-    (if (or all (not (my/app-frame-p (selected-frame))))
+    (if (or all
+            (not (my/app-frame-p (selected-frame)))
+            ;; canvas-browser を使っていないときは、App フレームでも consult-buffer
+            (not (fboundp 'canvas-browser-switch-tab)))
         (call-interactively #'consult-buffer)
       (call-interactively #'canvas-browser-switch-tab)))
 
@@ -3241,7 +3247,11 @@ Emacsのテキストプロパティ層から強制的に矢印（arrow）に変�
   (xwidget-webkit-mode-hook . my-xwidget-force-arrow-cursor))
 #+end_src
 ** canvas-browser
-#+begin_src emacs-lisp
+使いどころが難しいので、いったん使うのをやめている（2026-10-13）。
+=:tangle no= にしてあるので init.el には入らない。また使うときは外す。
+=*app-frame= は enghi でも使うので残してある。
+
+#+begin_src emacs-lisp :tangle no
 ;; canvas-keys と canvas-diagram はどのアーカイブにもないので、canvas-browser より先に入れる。
 ;; package-vc-install-from-checkout で登録済みなら :vc は何もしない。
 (leaf canvas-packages
