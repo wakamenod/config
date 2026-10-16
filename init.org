@@ -1954,7 +1954,19 @@ x, with its × or with `kill-buffer' takes the frame away too."
   (when (require 'swift-lsp nil t)
     (add-to-list 'eglot-server-programs '(swift-ts-mode . swift-lsp-eglot-server-contact)))
   (add-to-list 'eglot-server-programs '(go-ts-mode . ("gopls")))
-  (add-to-list 'eglot-server-programs '((typescript-ts-mode tsx-ts-mode js-ts-mode) . ("typescript-language-server" "--stdio")))
+  (defun my/eglot-typescript-contact (&rest _)
+    "TypeScript の LSP を、プロジェクトの TypeScript に合わせて選ぶ。
+TypeScript 7 は Go 製で lib/tsserver.js が無く、typescript-language-server が
+起動できない。代わりに tsc 自体の LSP (`tsc --lsp --stdio') を使う。"
+    (let* ((root (locate-dominating-file default-directory "node_modules/typescript"))
+           (ts (and root (expand-file-name "node_modules/typescript/" root))))
+      (cond
+       ((and ts (file-exists-p (expand-file-name "lib/tsserver.js" ts)))
+        '("typescript-language-server" "--stdio"))
+       (ts (list (expand-file-name "bin/tsc" ts) "--lsp" "--stdio"))
+       ;; プロジェクトに TypeScript が無いときは、グローバルの tsc（7 系）を使う
+       (t '("tsc" "--lsp" "--stdio")))))
+  (add-to-list 'eglot-server-programs '((typescript-ts-mode tsx-ts-mode js-ts-mode) . my/eglot-typescript-contact))
   (add-to-list 'eglot-server-programs '(LaTeX-mode . ("texlab"))))
 (leaf lsp-ui :ensure t)
 (leaf eglot-x
