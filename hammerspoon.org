@@ -1,0 +1,224 @@
+:PROPERTIES:
+:ID:       FC644C82-74E2-4F84-82FB-E3AE5760DFE6
+:END:
+#+title: Hammerspoon
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:lua :tangle ~/.hammerspoon/init.lua :mkdirp yes
+
+ウィンドウを、アプリ単位でまとめてディスプレイ間で動かす（[[https://www.hammerspoon.org/][Hammerspoon]]）。
+tangle 先は =~/.hammerspoon/init.lua= 。
+
+入れ方は =brew install --cask hammerspoon= 。初回に macOS の「アクセシビリティ」を許可する
+（ウィンドウを動かすのに要る）。設定を変えたら、メニューバーのアイコンの Reload Config で読み込み直す。
+
+うまくいったときは画面に何も出さない。ディスプレイが見つからないなど、何もできなかったときだけ
+=hs.alert= で知らせる。
+
+動かしたあとの並べ方は Amethyst に任せる。キーも Amethyst と同じく
+=Ctrl+Opt+Shift+Cmd= （Karabiner で Caps Lock を単独で押したときに出る Hyper）を使う。
+Amethyst がこの組み合わせで使っているのは =-= 、 =h= 、 =j= 、 =k= 、 =l= 、 =Return= 、↑↓ なので、それとは重ならないキーにする。
+
+| キー           | 動作                                                        |
+|----------------+-------------------------------------------------------------|
+| =Caps+B= | ほかのディスプレイにあるブラウザを、メインのディスプレイに持ってくる |
+| =Caps+;= | メインのディスプレイを Emacs だけにする。もう一度押すと元に戻す       |
+
+* 設定
+
+ディスプレイは名前で探す。Emacs の =my/startup-monitor-names= と同じく、上から順に探して
+最初に見つかったものをメインとする。名前は Hammerspoon のコンソールで
+=hs.inspect(hs.fnutils.map(hs.screen.allScreens(), function(s) return s:name() end))= を評価すると分かる。
+
+アプリはバンドル ID で見分ける（アプリ名は言語やベータ版で変わるため）。
+バンドル ID は =osascript -e 'id of app "アプリ名"'= で調べる。
+
+#+begin_src lua
+-- init.lua: move windows between displays by application.
+
+local mainScreenNames = { "Mi monitor" }
+
+local browserBundleIDs = {
+  ["com.brave.Browser"] = true,
+  ["com.google.Chrome"] = true,
+  ["com.apple.Safari"] = true,
+}
+
+local emacsBundleID = "org.gnu.Emacs"
+
+-- The same modifiers as Amethyst's Hyper shortcuts (Caps Lock alone via Karabiner).
+local hyper = { "ctrl", "alt", "shift", "cmd" }
+
+-- Move windows at once; Amethyst lays them out afterwards.
+hs.window.animationDuration = 0
+
+-- Let the `hs' command line tool talk to Hammerspoon (to check it from a shell).
+require("hs.ipc")
+#+end_src
+
+* ディスプレイとウィンドウ
+
+#+begin_src lua
+-- The first display of `mainScreenNames' that is connected, or nil.
+local function mainScreen()
+  for _, name in ipairs(mainScreenNames) do
+    for _, screen in ipairs(hs.screen.allScreens()) do
+      if screen:name() == name then
+        return screen
+      end
+    end
+  end
+  return nil
+end
+
+-- A display other than SCREEN to put windows on, or nil when there is none.
+local function otherScreen(screen)
+  for _, other in ipairs(hs.screen.allScreens()) do
+    if other:id() ~= screen:id() then
+      return other
+    end
+  end
+  return nil
+end
+
+local function bundleID(win)
+  local app = win:application()
+  return app and app:bundleID()
+end
+
+-- The standard, visible windows, so not the minimized ones or palettes.
+local function visibleWindows()
+  return hs.fnutils.filter(hs.window.visibleWindows(), function(win)
+    return win:isStandard()
+  end)
+end
+#+end_src
+
+* Amethyst に並べ直させる
+
+Hammerspoon でディスプレイを移したウィンドウを、Amethyst はタイルし直さない
+（移した先いっぱいに広がって、ほかのウィンドウと重なる）。
+移したあとに Amethyst の「Re-evaluate windows」のキーを送って、並べ直させる。
+キーは Amethyst の設定のもので、今は =Opt+Shift+Z= 。変えたらここも合わせる。
+
+押したキー（ =Ctrl+Opt+Shift+Cmd= ）を離す前に送ると修飾キーが混ざるかもしれないので、少し待つ。
+
+#+begin_src lua
+local amethystReevaluateKey = { mods = { "alt", "shift" }, key = "z" }
+
+local function amethystReevaluate()
+  hs.timer.doAfter(0.3, function()
+    hs.eventtap.keyStroke(amethystReevaluateKey.mods, amethystReevaluateKey.key)
+  end)
+end
+#+end_src
+
+* ブラウザを持ってくる
+
+#+begin_src lua
+local function bringBrowsers()
+  local main = mainScreen()
+  if not main then
+    hs.alert.show("Main display not connected")
+    return
+  end
+  local moved = 0
+  for _, win in ipairs(visibleWindows()) do
+    if browserBundleIDs[bundleID(win)] and win:screen():id() ~= main:id() then
+      win:moveToScreen(main, false, true)
+      moved = moved + 1
+    end
+  end
+  if moved > 0 then
+    amethystReevaluate()
+  end
+end
+#+end_src
+
+* Emacs だけにする
+
+メインのディスプレイにある Emacs 以外のウィンドウを、ほかのディスプレイに移す。
+もう一度押すと、移したウィンドウをメインのディスプレイに戻す。
+
+どちらをするかは、押したときの画面で決める。メインのディスプレイに Emacs 以外が
+あれば移し、Emacs しかなければ戻す。前回どちらをしたかでは決めない（手でウィンドウを
+動かしたあとでも、思ったほうが動くように）。
+
+移したウィンドウは =hs.settings= に覚えておく。設定を読み込み直しても、Hammerspoon を
+起動し直しても残る。閉じたウィンドウは戻すときに飛ばす。
+
+#+begin_src lua
+local evictedKey = "emacsOnly.evicted"
+
+local function evictedIDs()
+  return hs.settings.get(evictedKey) or {}
+end
+
+local function setEvictedIDs(ids)
+  hs.settings.set(evictedKey, ids)
+end
+
+-- Visible windows on SCREEN that are not Emacs.
+local function nonEmacsWindowsOn(screen)
+  return hs.fnutils.filter(visibleWindows(), function(win)
+    return win:screen():id() == screen:id() and bundleID(win) ~= emacsBundleID
+  end)
+end
+
+local function restoreEvicted(main)
+  local restored = 0
+  for _, id in ipairs(evictedIDs()) do
+    local win = hs.window.get(id)
+    if win then
+      win:moveToScreen(main, false, true)
+      restored = restored + 1
+    end
+  end
+  setEvictedIDs({})
+  if restored == 0 then
+    hs.alert.show("No windows to bring back")
+    return
+  end
+  amethystReevaluate()
+end
+
+local function evictNonEmacs(main, windows)
+  local other = otherScreen(main)
+  if not other then
+    hs.alert.show("No other display to move windows to")
+    return
+  end
+  local ids = evictedIDs()
+  for _, win in ipairs(windows) do
+    win:moveToScreen(other, false, true)
+    table.insert(ids, win:id())
+  end
+  setEvictedIDs(ids)
+  local emacs = hs.application.get(emacsBundleID)
+  if emacs then
+    emacs:activate()
+  end
+  amethystReevaluate()
+end
+
+local function toggleEmacsOnly()
+  local main = mainScreen()
+  if not main then
+    hs.alert.show("Main display not connected")
+    return
+  end
+  local windows = nonEmacsWindowsOn(main)
+  if #windows > 0 then
+    evictNonEmacs(main, windows)
+  else
+    restoreEvicted(main)
+  end
+end
+#+end_src
+
+* キー
+
+#+begin_src lua
+hs.hotkey.bind(hyper, "b", bringBrowsers)
+hs.hotkey.bind(hyper, ";", toggleEmacsOnly)
+#+end_src
