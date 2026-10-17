@@ -36,7 +36,7 @@ Amethyst がこの組み合わせで使っているのは =-= 、 =h= 、 =j= �
 #+begin_src lua
 -- init.lua: move windows between displays by application.
 
-local mainScreenNames = { "Mi monitor" }
+local mainScreenNames = { "Mi monitor", "LG Ultra HD" }
 
 local browserBundleIDs = {
   ["com.brave.Browser"] = true,
