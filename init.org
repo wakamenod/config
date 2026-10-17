@@ -741,7 +741,7 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   :doc "Open the first frame on the same display every time"
   :if (equal system-type 'darwin)
   :preface
-  (defvar my/startup-monitor-names '("Mi monitor")
+  (defvar my/startup-monitor-names '("Mi monitor" "LG Ultra HD")
     "Names of displays the first frame may open on, in order of preference.
 Each PC uses the first one it has connected.")
 
