@@ -733,6 +733,29 @@ https://github.com/yuru7/moralerspace/releases/tag/v1.0.2
   :config
   (add-to-list 'default-frame-alist '(undecorated-round . t)))
 
+;; 最初のフレームを決まったディスプレイに出す。ディスプレイは名前で探すので、
+;; 並べ方を変えても追いかける。PC ごとに使うディスプレイの名前をリストに並べ、
+;; 上から順に探して最初に見つかったものを使う。どれもなければ何もしない。
+;; 名前は (mapcar (lambda (m) (alist-get 'name m)) (display-monitor-attributes-list)) で調べる
+(leaf *macos-startup-monitor
+  :doc "Open the first frame on the same display every time"
+  :if (equal system-type 'darwin)
+  :preface
+  (defvar my/startup-monitor-names '("Mi monitor")
+    "Names of displays the first frame may open on, in order of preference.
+Each PC uses the first one it has connected.")
+
+  (defun my/move-frame-to-startup-monitor ()
+    "Move the selected frame to the first display found in `my/startup-monitor-names'."
+    (let ((monitors (display-monitor-attributes-list)))
+      (when-let* ((monitor (seq-some (lambda (name)
+                                       (seq-find (lambda (m) (equal (alist-get 'name m) name))
+                                                 monitors))
+                                     my/startup-monitor-names))
+                  (workarea (alist-get 'workarea monitor)))
+        (set-frame-position (selected-frame) (nth 0 workarea) (nth 1 workarea)))))
+  :hook (window-setup-hook . my/move-frame-to-startup-monitor))
+
 (leaf *macos-ime-integration
   :doc "Ensure proper integration of macOS IME, deactivating IME in specific contexts"
   :if (and (equal system-type 'darwin) (window-system))
@@ -2053,6 +2076,8 @@ TypeScript 7 は Go 製で lib/tsserver.js が無く、typescript-language-serve
   ;; Use the local dev build, which pastes with C-y instead of Cmd+V (M-v here).
   (typewhisper-api-discovery-file
    . "~/Library/Application Support/TypeWhisper-Dev/api-discovery.json")
+  ;; Apply low-confidence fixes too; they are one undo step if wrong.
+  (typewhisper-fix-min-confidence . 'low)
   :global-minor-mode typewhisper-mode)
 #+end_src
 
@@ -3356,8 +3381,9 @@ Only image/png is taken, which is what canvas-keys copies."
            (enghi-xwidget-padding . '(32 . 12))
            (enghi-triage-display . 'posframe)
            (enghi-posframe-border-width . 5)
-           (enghi-task-list-title-width . 64)
-           (enghi-task-list-side-width . 28))
+           (enghi-triage-posframe-top . 0.35)
+           (enghi-task-list-title-width . 76)
+           (enghi-task-list-side-width . 32))
   :custom-face
   (enghi-posframe-border . '((t (:background "#323445")))))
 
