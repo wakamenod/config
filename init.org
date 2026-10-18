@@ -756,6 +756,24 @@ Each PC uses the first one it has connected.")
         (set-frame-position (selected-frame) (nth 0 workarea) (nth 1 workarea)))))
   :hook (window-setup-hook . my/move-frame-to-startup-monitor))
 
+;; C-c w o で次のフレームに移る（C-x 5 o と同じ other-frame）。続けて o を押すと
+;; さらに次へ、O で逆順に移る。other-frame には標準で repeat-mode のキーマップが
+;; ないので足している（C-x 5 o のあとでも効く）
+(leaf *frame-switch
+  :doc "Go to the other Emacs frames in turn"
+  :preface
+  (defun my/other-frame-backward ()
+    "Select the previous frame."
+    (interactive)
+    (other-frame -1))
+
+  (defvar-keymap my/other-frame-repeat-map
+    :doc "Keep going to the other frames with `o', or back with `O'."
+    :repeat t
+    "o" #'other-frame
+    "O" #'my/other-frame-backward)
+  :bind ("s-o" . other-frame))
+
 (leaf *macos-ime-integration
   :doc "Ensure proper integration of macOS IME, deactivating IME in specific contexts"
   :if (and (equal system-type 'darwin) (window-system))
