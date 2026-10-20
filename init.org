@@ -2233,6 +2233,19 @@ Like normal Emacs `C-k'.  Kill to end of line and put content in kill-ring."
                  (buffer-live-p popterm--frame-buffer))
         (popterm--posframe-show popterm--frame-buffer))))
   (define-key popterm-term-map (kbd "C-M-p") #'my/popterm-rotate-position))
+
+;; posframe は前回と同じ位置に出すときは移動を省くが、隠れている間に子フレームが
+;; 外から（ディスプレイ構成の変化などで）画面外へずらされると、そのまま見えない
+;; 位置に出てしまう。実際の位置が覚えている位置と違えば、覚えている位置を捨てて動かし直させる。
+(with-eval-after-load 'posframe
+  (advice-add 'posframe--set-frame-position :before
+              (lambda (posframe &rest _)
+                (when (and posframe--last-posframe-pixel-position
+                           (frame-live-p posframe)
+                           (not (equal (frame-position posframe)
+                                       posframe--last-posframe-pixel-position)))
+                  (setq-local posframe--last-posframe-pixel-position nil)))
+              '((name . my/posframe-forget-moved-position))))
 #+end_src
 
 
