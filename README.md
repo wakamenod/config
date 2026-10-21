@@ -55,6 +55,7 @@ Org Mode / Applications / Post Process
 | `xbar.org` | `~/Library/Application Support/xbar/…` |
 | `autumn.org` | `~/.autumn.js` |
 | `brave-beta-update.org` | `~/.local/bin/brave-beta-update`、`~/Library/LaunchAgents/…` |
+| `brave-tab-groups.org` | `~/.config/brave-tab-groups/…`（Brave に「パッケージ化されていない拡張機能」として読み込む） |
 
 ### Linux（アーカイブ）
 

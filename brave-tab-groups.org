@@ -1,0 +1,499 @@
+:PROPERTIES:
+:ID:       3F8B2C6D-1E4A-4B7F-9C25-8D6E0A1B7F34
+:END:
+#+title: Brave tab groups by site
+#+category: Configuration
+#+filetags: Configuration
+
+同じサイトのタブをタブグループにまとめる、自分用の Brave（Chromium）拡張。
+=~/.config/brave-tab-groups/= へ tangle される。
+
+Brave を画面の 1/4（960px）の幅で並べているとタブバーが窮屈なので、
+サイトごとにまとめて、見ていないグループは折りたたむ。
+折りたたんだグループはタブバー上でサイト名のチップ 1 つ分の幅になる。
+
+* 動き
+- タブの URL が決まったら、そのサイト（ホスト名、先頭の =www.= は除く）のグループに入れる。
+  =LABELS= にあるサイト（サブドメインも含む）は、グループ名をホスト名ではなく絵文字にする
+  （GitHub 🐙、Notion 📓、Claude ✴️、Figma 🎨）。同じ絵文字のサイトは 1 つのグループにまとまる。
+- グループは同じサイトのタブが =MIN_TABS= 枚以上になったときに作る。
+  1 枚だけのグループはかえって幅を取るので作らない。減って 1 枚になったら解く。
+- タブを切り替えると、そのタブのグループだけ開き、ほかのグループは折りたたむ。
+- 自分で作ったグループ（名前が =LABELS= の絵文字でもホスト名の形でもないもの）には手を出さない。
+- ローカルファイル（=file://= のタブ）は、場所に関係なくまとめて 📁 のグループに入れる。
+- ピン留めタブ、=http(s)= でも =file:= でもないページ（=brave://= など）はまとめない。
+- 拡張を読み込んだとき・更新したとき・ブラウザを起動したときに、全ウィンドウのタブをグループ分けし直す。
+
+* タブの一覧（ポップアップ）
+折りたたんだグループを開かずにタブを選ぶための一覧。
+ツールバーの拡張アイコンか =Alt+Shift+G= で開く。
+
+- グループごとにタブを並べる（タブバーと同じ順、グループに入っていないタブは最後）。
+- 文字を打つとタブのタイトルと URL で絞り込む。=↑= / =↓= で選んで =Enter= で開く。
+- 選んだタブのグループはそのとき開く（表示中のタブのグループはブラウザが必ず開くため）。
+- 下の「まとめ直す」で、今のウィンドウのタブをグループ分けし直す。
+
+ショートカットは =brave://extensions/shortcuts= で変えられる。
+
+* 入れ方
+1. =brave://extensions= を開き、右上の「デベロッパーモード」をオンにする。
+2. 「パッケージ化されていない拡張機能を読み込む」で =~/.config/brave-tab-groups= を選ぶ。
+
+このファイルを直して保存（自動で tangle）したら、=brave://extensions= で
+この拡張の更新ボタン（↻）を押すと反映される。
+
+* manifest.json
+#+begin_src json :tangle ~/.config/brave-tab-groups/manifest.json :mkdirp yes
+{
+  "manifest_version": 3,
+  "name": "Tab Groups by Site",
+  "version": "0.1.0",
+  "description": "Group tabs by site and collapse the groups you are not looking at.",
+  "permissions": ["tabs", "tabGroups"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Tabs by group", "default_popup": "popup.html" },
+  "commands": {
+    "_execute_action": { "suggested_key": { "default": "Alt+Shift+G" } }
+  }
+}
+#+end_src
+
+* background.js
+#+begin_src js :tangle ~/.config/brave-tab-groups/background.js :mkdirp yes
+// A site gets a group once it has this many tabs in the window.
+const MIN_TABS = 2;
+
+// Group titles for these hosts and their subdomains instead of the host
+// name. Hosts that share a title share a group.
+const LABELS = {
+  "github.com": "🐙",
+  "notion.so": "📓",
+  "notion.com": "📓",
+  "claude.ai": "✴️",
+  "figma.com": "🎨",
+};
+
+// Group title for local files (file:// tabs), all in one group.
+const FILE_LABEL = "📁";
+
+const COLORS = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
+const NO_GROUP = chrome.tabGroups.TAB_GROUP_ID_NONE;
+
+// The group title for a URL: its label, or its host without a leading
+// "www.", FILE_LABEL for local files, or null for pages that should stay
+// ungrouped (brave://, the new tab page, ...).
+function siteOf(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol === "file:") {
+      return FILE_LABEL;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") {
+      return null;
+    }
+    const host = u.hostname.replace(/^www\./, "");
+    const labelled = Object.keys(LABELS).find((k) => host === k || host.endsWith("." + k));
+    return labelled ? LABELS[labelled] : host;
+  } catch {
+    return null;
+  }
+}
+
+function urlOf(tab) {
+  return tab.url || tab.pendingUrl || "";
+}
+
+// Groups this extension made are titled with a label or a host name;
+// anything else is a group the user made by hand, and is left alone.
+function isOurs(group) {
+  return (
+    Object.values(LABELS).includes(group.title) ||
+    group.title === FILE_LABEL ||
+    /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(group.title) ||
+    group.title === "localhost"
+  );
+}
+
+function colorOf(site) {
+  let h = 0;
+  for (const c of site) {
+    h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  }
+  return COLORS[h % COLORS.length];
+}
+
+// Chrome refuses tab edits while the user is dragging a tab, so retry briefly.
+async function retry(fn) {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i >= 5 || !String(e.message).includes("cannot be edited")) {
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+}
+
+// Events arrive in bursts; handling them one at a time keeps two handlers
+// from creating the same group twice.
+let queue = Promise.resolve();
+function serial(fn) {
+  queue = queue.then(() => retry(fn)).catch((e) => console.warn(e));
+}
+
+// Ungroup what is left of one of our groups once it is too small to be worth it.
+async function tidy(groupId) {
+  const group = await chrome.tabGroups.get(groupId).catch(() => null);
+  if (!group || !isOurs(group)) {
+    return;
+  }
+  const rest = await chrome.tabs.query({ groupId });
+  if (rest.length > 0 && rest.length < MIN_TABS) {
+    await chrome.tabs.ungroup(rest.map((t) => t.id));
+  }
+}
+
+async function tidyWindow(windowId) {
+  for (const group of await chrome.tabGroups.query({ windowId })) {
+    await tidy(group.id);
+  }
+}
+
+async function place(tabId) {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || tab.pinned) {
+    return;
+  }
+  const site = siteOf(urlOf(tab));
+  const groups = await chrome.tabGroups.query({ windowId: tab.windowId });
+  const current = groups.find((g) => g.id === tab.groupId);
+  if (current && (!isOurs(current) || current.title === site)) {
+    return;
+  }
+  if (current) {
+    await chrome.tabs.ungroup(tab.id);
+    await tidy(current.id);
+  }
+  if (!site) {
+    return;
+  }
+
+  const target = groups.find((g) => g.title === site);
+  if (target) {
+    await chrome.tabs.group({ groupId: target.id, tabIds: tab.id });
+    return;
+  }
+  const tabs = await chrome.tabs.query({ windowId: tab.windowId, pinned: false });
+  const same = tabs.filter((t) => t.groupId === NO_GROUP && siteOf(urlOf(t)) === site);
+  if (same.length < MIN_TABS) {
+    return;
+  }
+  const groupId = await chrome.tabs.group({
+    tabIds: same.map((t) => t.id),
+    createProperties: { windowId: tab.windowId },
+  });
+  await chrome.tabGroups.update(groupId, { title: site, color: colorOf(site) });
+}
+
+// Open the active tab's group and collapse our other groups.
+async function focus(windowId) {
+  const [active] = await chrome.tabs.query({ windowId, active: true });
+  for (const group of await chrome.tabGroups.query({ windowId })) {
+    const collapsed = group.id !== active?.groupId;
+    if (isOurs(group) && group.collapsed !== collapsed) {
+      await chrome.tabGroups.update(group.id, { collapsed });
+    }
+  }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.url !== undefined || info.pinned === false) {
+    serial(async () => {
+      await place(tabId);
+      await focus(tab.windowId);
+    });
+  } else if (info.groupId !== undefined) {
+    // A tab dragged out of one of our groups may leave a single tab behind.
+    serial(() => tidyWindow(tab.windowId));
+  }
+});
+
+chrome.tabs.onAttached.addListener((tabId, { newWindowId }) => {
+  serial(async () => {
+    await place(tabId);
+    await focus(newWindowId);
+  });
+});
+
+chrome.tabs.onActivated.addListener(({ windowId }) => {
+  serial(() => focus(windowId));
+});
+
+chrome.tabs.onRemoved.addListener((_tabId, { windowId, isWindowClosing }) => {
+  if (!isWindowClosing) {
+    serial(() => tidyWindow(windowId));
+  }
+});
+
+async function regroup(windowId) {
+  for (const t of await chrome.tabs.query({ windowId })) {
+    await place(t.id);
+  }
+  await focus(windowId);
+}
+
+async function regroupAll() {
+  for (const w of await chrome.windows.getAll({ windowTypes: ["normal"] })) {
+    await regroup(w.id);
+  }
+}
+
+// The popup's "regroup" button.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === "regroup") {
+    serial(() => regroup(message.windowId));
+  }
+});
+
+// Reloading the extension or restarting the browser leaves the existing
+// groups as they were, so regroup every window then.
+chrome.runtime.onInstalled.addListener(() => serial(regroupAll));
+chrome.runtime.onStartup.addListener(() => serial(regroupAll));
+#+end_src
+
+* popup.html
+#+begin_src html :tangle ~/.config/brave-tab-groups/popup.html :mkdirp yes
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #202124;
+    --muted: #5f6368;
+    --line: #e0e0e0;
+    --hover: #f1f3f4;
+    --selected: #e8f0fe;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #202124;
+      --fg: #e8eaed;
+      --muted: #9aa0a6;
+      --line: #3c4043;
+      --hover: #2d2e31;
+      --selected: #394457;
+    }
+  }
+  body {
+    margin: 0;
+    width: 360px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  #filter {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    outline: none;
+  }
+  #list {
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 2px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 10px 5px 24px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .tab:hover {
+    background: var(--hover);
+  }
+  .tab.selected {
+    background: var(--selected);
+  }
+  .tab.active {
+    font-weight: 600;
+  }
+  .tab img {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+  .tab span {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  #regroup {
+    width: 100%;
+    padding: 8px;
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  #regroup:hover {
+    background: var(--hover);
+  }
+</style>
+</head>
+<body>
+<input id="filter" placeholder="タブを絞り込む" autofocus>
+<div id="list"></div>
+<button id="regroup">まとめ直す</button>
+<script type="module" src="popup.js"></script>
+</body>
+</html>
+#+end_src
+
+* popup.js
+#+begin_src js :tangle ~/.config/brave-tab-groups/popup.js :mkdirp yes
+// The colors Chrome draws tab groups in.
+const COLORS = {
+  grey: "#5f6368",
+  blue: "#1a73e8",
+  red: "#d93025",
+  yellow: "#f9ab00",
+  green: "#1e8e3e",
+  pink: "#d01884",
+  purple: "#9334e6",
+  cyan: "#007b83",
+  orange: "#fa903e",
+};
+
+const list = document.getElementById("list");
+const filter = document.getElementById("filter");
+
+const win = await chrome.windows.getCurrent();
+const tabs = await chrome.tabs.query({ windowId: win.id });
+const groups = new Map((await chrome.tabGroups.query({ windowId: win.id })).map((g) => [g.id, g]));
+
+// Sections in tab strip order: one per group, then the ungrouped tabs.
+const sections = [];
+for (const tab of tabs) {
+  if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) {
+    continue;
+  }
+  let section = sections.find((s) => s.group.id === tab.groupId);
+  if (!section) {
+    section = { group: groups.get(tab.groupId), tabs: [] };
+    sections.push(section);
+  }
+  section.tabs.push(tab);
+}
+const ungrouped = tabs.filter((t) => t.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE);
+if (ungrouped.length > 0) {
+  sections.push({ group: null, tabs: ungrouped });
+}
+
+let shown = [];
+let selected = 0;
+
+function open(tab) {
+  chrome.tabs.update(tab.id, { active: true });
+  window.close();
+}
+
+function render() {
+  const words = filter.value.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (tab) =>
+    words.every((w) => `${tab.title} ${tab.url}`.toLowerCase().includes(w));
+
+  list.replaceChildren();
+  shown = [];
+  for (const { group, tabs } of sections) {
+    const hits = tabs.filter(matches);
+    if (hits.length === 0) {
+      continue;
+    }
+    const header = document.createElement("div");
+    header.className = "group";
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.style.background = group ? COLORS[group.color] : "transparent";
+    header.append(dot, group ? group.title || "（名前なし）" : "グループなし");
+    list.append(header);
+
+    for (const tab of hits) {
+      const item = document.createElement("button");
+      item.className = "tab" + (tab.active ? " active" : "");
+      item.title = tab.url;
+      const icon = document.createElement("img");
+      icon.alt = "";
+      if (tab.favIconUrl) {
+        icon.src = tab.favIconUrl;
+      } else {
+        icon.style.visibility = "hidden";
+      }
+      const title = document.createElement("span");
+      title.textContent = tab.title || tab.url;
+      item.append(icon, title);
+      item.addEventListener("click", () => open(tab));
+      list.append(item);
+      shown.push({ tab, item });
+    }
+  }
+  select(0);
+}
+
+function select(i) {
+  shown[selected]?.item.classList.remove("selected");
+  selected = Math.max(0, Math.min(i, shown.length - 1));
+  shown[selected]?.item.classList.add("selected");
+  shown[selected]?.item.scrollIntoView({ block: "nearest" });
+}
+
+filter.addEventListener("input", render);
+filter.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") {
+    e.preventDefault();
+    select(selected + 1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    select(selected - 1);
+  } else if (e.key === "Enter" && shown[selected]) {
+    open(shown[selected].tab);
+  }
+});
+
+document.getElementById("regroup").addEventListener("click", async () => {
+  // The background answers nothing, which some versions report as an error.
+  await chrome.runtime.sendMessage({ type: "regroup", windowId: win.id }).catch(() => {});
+  window.close();
+});
+
+render();
+#+end_src
