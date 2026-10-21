@@ -1564,33 +1564,56 @@ x, with its × or with `kill-buffer' takes the frame away too."
   :preface
   (defvar my/explanations-dir (expand-file-name "~/Documents/explanations/")
     "Directory where the explain-diff-html skill saves its HTML.")
+  ;; パスは公開しないので、ここでは空にしておき local-init.el で setq する。
+  (defvar my/explanations-extra-dirs nil
+    "More directories whose index.html files, at any depth, are listed with the explanations.")
   (defun my/explanations--title (file)
     "Return the <title> of FILE, reading only the head of the file."
     (with-temp-buffer
       (insert-file-contents file nil 0 4096)
       (when (re-search-forward "<title>\\([^<]*\\)" nil t)
         (string-trim (match-string 1)))))
+  (defun my/explanations--files ()
+    "Return (NAME . FILE) for the explanations and the index.html of the extra dirs.
+NAME is the file name for an explanation, and the path from the parent of
+its directory for an index.html.  Newest first."
+    (let ((files
+           (append
+            (mapcar (lambda (f) (cons (file-name-nondirectory f) f))
+                    (directory-files my/explanations-dir t "\\.html\\'"))
+            (mapcan (lambda (dir)
+                      (let ((parent (file-name-directory (directory-file-name dir))))
+                        (mapcar (lambda (f) (cons (file-relative-name f parent) f))
+                                (directory-files-recursively dir "\\`index\\.html\\'"))))
+                    (seq-filter #'file-directory-p my/explanations-extra-dirs)))))
+      (sort files
+            :key (lambda (entry) (file-attribute-modification-time (file-attributes (cdr entry))))
+            :reverse t)))
   (defun my/explanations-find ()
     "Pick an explanation by file name or title, newest first, and open it in the browser."
     (interactive)
-    (let* ((files (reverse (directory-files my/explanations-dir nil "\\.html\\'")))
-           (titles (mapcar (lambda (f)
-                             (cons f (my/explanations--title
-                                      (expand-file-name f my/explanations-dir))))
-                           files))
-           (file (consult--read
-                  files
-                  :prompt "Explanation: "
-                  :sort nil
-                  :require-match t
-                  :annotate (lambda (f)
-                              (when-let* ((title (alist-get f titles nil nil #'equal)))
-                                (concat "  " (propertize title 'face 'completions-annotations)))))))
-      (browse-url-of-file (expand-file-name file my/explanations-dir))))
+    ;; タイトルを主にし、ファイル名は後ろに薄く添える。注釈 (:annotate) にすると
+    ;; 絞り込みに使われないので、ファイル名も候補の文字列に入れる。
+    (let* ((candidates
+            (mapcar (lambda (entry)
+                      (let ((title (my/explanations--title (cdr entry))))
+                        (cons (if title
+                                  (concat title "  "
+                                          (propertize (car entry) 'face 'completions-annotations))
+                                (car entry))
+                              (cdr entry))))
+                    (my/explanations--files)))
+           (choice (consult--read
+                    (mapcar #'car candidates)
+                    :prompt "Explanation: "
+                    :sort nil
+                    :require-match t)))
+      (browse-url-of-file (alist-get choice candidates nil nil #'equal))))
   (defun my/explanations-grep ()
-    "Search the full text of the explanations with ripgrep."
+    "Search the full text of the explanations and the extra dirs with ripgrep."
     (interactive)
-    (consult-ripgrep my/explanations-dir)))
+    (consult-ripgrep (cons my/explanations-dir
+                           (seq-filter #'file-directory-p my/explanations-extra-dirs)))))
 
 #+end_src
 ** Embark
