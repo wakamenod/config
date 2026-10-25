@@ -1982,6 +1982,9 @@ its directory for an index.html.  Newest first."
   ;; .php を開くたびにインストールを聞かれる。引数なしなら treesit-ready-p を
   ;; 満たすものだけ（実測 16件）が登録される。
   (treesit-auto-add-to-auto-mode-alist)
+  ;; Emacs 標準の "\\.js[mx]?\\'" は .jsm と .jsx で、.mjs / .cjs は入っていない。
+  ;; treesit-auto が足すのも "\\.js\\'" だけなので、ここで足す。
+  (add-to-list 'auto-mode-alist '("\\.[cm]js\\'" . js-ts-mode))
   (global-treesit-auto-mode))
 #+end_src
 ** Xref
