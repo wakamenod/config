@@ -1,0 +1,48 @@
+:PROPERTIES:
+:ID:       3A0EFBA9-DA53-4608-85A0-AE2DF5386AF3
+:END:
+#+title: oso config.toml
+#+category: Configuration
+#+filetags: Configuration
+#+PROPERTY: header-args:toml :tangle ~/.config/oso/config.toml :mkdirp yes
+
+[[https://github.com/wakamenod/oso][oso]]（Emacs 風のエディタ）の設定。
+tangle 先は =~/.config/oso/config.toml=。
+
+oso はこのファイルを変更すると読み直す（[sessions] は起動時だけ読む）。
+=oso --no-config= で設定なしに起動できる。
+
+同じディレクトリの =trusted-projects= は oso 自身が書くファイルなので、ここでは管理しない
+（=M-x trust-project= / =M-x untrust-project= で変える）。
+
+* セッション
+
+oso が起動したエージェント（信頼したプロジェクト内のもの）が、
+worktree セッションを確認なしで始めてよいか。
+
+- =agents_start_without_asking= : true なら聞かない。起動時に読む。
+  =M-x agent-starts-ask= で次の起動まで確認に戻せる
+- =agents_start_limit= : 1 呼び出し元が確認なしで持てる生きたセッションの数（1〜8、または ="none"= で無制限）
+
+業務用の Mac では、聞いてほしければこの 2 行を消す。
+
+#+BEGIN_SRC toml
+[sessions]
+agents_start_without_asking = true
+agents_start_limit = "none"
+#+END_SRC
+
+* キー
+
+=[keys.global]= に Emacs 記法のキー列と、コマンド名（または =false= で無効化）を書く。
+macOS では Command が Meta（=M-=）、Option が Super（=s-=）。
+
+Emacs と同じウィンドウ移動（Option+h/j/k/l）。
+
+#+BEGIN_SRC toml
+[keys.global]
+"s-h" = "windmove-left"
+"s-l" = "windmove-right"
+"s-j" = "windmove-down"
+"s-k" = "windmove-up"
+#+END_SRC

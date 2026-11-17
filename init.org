@@ -36,6 +36,11 @@
           (lambda ()
             (setq file-name-handler-alist tmp:saved-file-name-handler-alist)))
 
+;; TRAMP は使わないので止める。細工したファイル名（シンボリックリンクの参照先など）に
+;; 触れるだけでローカルのコマンドが走る TRAMP の脆弱性（CVE-2026-79992 と、その修正漏れの
+;; CVE-2026-108976）を塞ぐため。2026-10-31。
+(setq tramp-mode nil)
+
 (eval-and-compile
   (when (or load-file-name byte-compile-current-file)
     (setq user-emacs-directory
